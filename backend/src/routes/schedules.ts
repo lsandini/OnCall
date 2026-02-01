@@ -1,12 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { Worker, WeeklyAvailability, MonthlySchedule } from '../types/index.js';
+import { Worker, WeeklyAvailability, MonthlySchedule, ShiftConfiguration } from '../types/index.js';
 import { generateMonthlySchedule } from '../services/scheduler.js';
 
 export function createSchedulesRouter(
   getWorkers: () => Worker[],
   getAvailability: () => WeeklyAvailability[],
   getSchedules: () => MonthlySchedule[],
-  setSchedules: (schedules: MonthlySchedule[]) => void
+  setSchedules: (schedules: MonthlySchedule[]) => void,
+  getActiveConfiguration: () => ShiftConfiguration | undefined
 ) {
   const router = Router();
 
@@ -38,13 +39,15 @@ export function createSchedulesRouter(
     const workers = getWorkers();
     const availability = getAvailability();
     const schedules = getSchedules();
+    const configuration = getActiveConfiguration();
 
     const newSchedule = generateMonthlySchedule(
       year,
       month,
       workers,
       availability,
-      schedules
+      schedules,
+      configuration
     );
 
     // Replace existing schedule for this month if exists

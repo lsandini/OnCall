@@ -14,6 +14,8 @@ export default function WorkerForm({ worker, onClose, onSave }: Props) {
   const [type, setType] = useState<WorkerType>(worker?.type || 'permanent');
   const [canDoubleSift, setCanDoubleSift] = useState(worker?.canDoubleSift || false);
   const [yearOfStudy, setYearOfStudy] = useState(worker?.yearOfStudy || 4);
+  const [startDate, setStartDate] = useState(worker?.startDate || '');
+  const [endDate, setEndDate] = useState(worker?.endDate || '');
   const [saving, setSaving] = useState(false);
 
   const api = useApi();
@@ -29,7 +31,9 @@ export default function WorkerForm({ worker, onClose, onSave }: Props) {
         role,
         type,
         canDoubleSift: type === 'external' ? canDoubleSift : false,
-        yearOfStudy: role === 'student' ? yearOfStudy : undefined
+        yearOfStudy: role === 'student' ? yearOfStudy : undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined
       };
 
       if (worker) {
@@ -135,6 +139,32 @@ export default function WorkerForm({ worker, onClose, onSave }: Props) {
               </label>
             </div>
           )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-steel-600 uppercase tracking-wide mb-2">
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full border-2 border-steel-200 px-3 py-2 focus:outline-none focus:border-clinic-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-steel-600 uppercase tracking-wide mb-2">
+                End Date
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full border-2 border-steel-200 px-3 py-2 focus:outline-none focus:border-clinic-500"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-steel-400">Leave empty for ongoing employment</p>
 
           <div className="flex gap-3 pt-4">
             <button

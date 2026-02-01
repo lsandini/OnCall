@@ -5,7 +5,7 @@ import {
   MonthlySchedule,
   ShiftType,
   LinePosition,
-  SHIFT_REQUIREMENTS,
+  ShiftConfiguration,
   AvailabilityStatus
 } from '../types/index.js';
 
@@ -56,6 +56,16 @@ function getWorkerAvailability(
   return entry?.status || 'available'; // Default to available
 }
 
+// Check if worker is employed on a specific date
+function isWorkerEmployedOnDate(worker: Worker, date: Date): boolean {
+  // If no start date, assume always employed
+  const startDate = worker.startDate ? new Date(worker.startDate) : new Date(0);
+  // If no end date, assume ongoing
+  const endDate = worker.endDate ? new Date(worker.endDate) : new Date(9999, 11, 31);
+
+  return date >= startDate && date <= endDate;
+}
+
 // Check if worker can fill a position
 function canFillPosition(worker: Worker, position: LinePosition): boolean {
   switch (position) {
@@ -103,7 +113,8 @@ export function generateMonthlySchedule(
   month: number,
   workers: Worker[],
   availability: WeeklyAvailability[],
-  existingSchedules: MonthlySchedule[]
+  existingSchedules: MonthlySchedule[],
+  configuration?: ShiftConfiguration
 ): MonthlySchedule {
   const assignments: ShiftAssignment[] = [];
   const dates = getDatesInMonth(year, month);
@@ -113,21 +124,28 @@ export function generateMonthlySchedule(
   const shiftCounts: Map<string, number> = new Map();
   activeWorkers.forEach(w => shiftCounts.set(w.id, 0));
 
+  // Use configuration's daily requirements if provided
+  const dailyRequirements = configuration?.dailyRequirements || [];
+
   // Process each date
   for (const date of dates) {
     const dayOfWeek = date.getDay();
     const dateStr = date.toISOString().split('T')[0];
 
-    // Get requirements for this day
-    const dayRequirements = SHIFT_REQUIREMENTS.filter(r => r.dayOfWeek === dayOfWeek);
+    // Get requirements for this day from configuration
+    const dayRequirements = dailyRequirements.filter(r => r.dayOfWeek === dayOfWeek);
 
     // Process each shift requirement
     for (const req of dayRequirements) {
+      // Convert shiftTypeId to ShiftType (they match: 'day', 'evening', 'night')
+      const shiftType = req.shiftTypeId as ShiftType;
+
       for (const position of req.positions) {
         // Get eligible workers for this position
         const eligibleWorkers = activeWorkers.filter(w => {
+          if (!isWorkerEmployedOnDate(w, date)) return false;
           if (!canFillPosition(w, position)) return false;
-          if (isWorkerAssignedToShift(w.id, dateStr, req.shiftType, assignments)) return false;
+          if (isWorkerAssignedToShift(w.id, dateStr, shiftType, assignments)) return false;
 
           // For non-supervisor positions, avoid assigning same worker to multiple shifts same day
           // unless they're external and can do double shifts
@@ -143,7 +161,7 @@ export function generateMonthlySchedule(
 
         // Score workers based on availability preference and balance
         const scoredWorkers = eligibleWorkers.map(w => {
-          const avail = getWorkerAvailability(w, availability, date, req.shiftType);
+          const avail = getWorkerAvailability(w, availability, date, shiftType);
           const currentShifts = shiftCounts.get(w.id) || 0;
 
           let score = 0;
@@ -170,7 +188,7 @@ export function generateMonthlySchedule(
           assignments.push({
             id: generateId(),
             date: dateStr,
-            shiftType: req.shiftType,
+            shiftType,
             position,
             workerId: selected.worker.id,
             isDoubleShift: false

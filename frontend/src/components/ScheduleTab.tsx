@@ -19,7 +19,7 @@ interface Props {
   onScheduleChange: () => void;
 }
 
-type ViewMode = 'calendar' | 'list';
+type ViewMode = 'calendar' | 'list' | 'distribution';
 
 export default function ScheduleTab({ workers, schedule, year, month, onScheduleChange }: Props) {
   const [generating, setGenerating] = useState(false);
@@ -271,6 +271,115 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     );
   };
 
+  const DistributionLists = () => {
+    if (!schedule) return null;
+
+    const formatDateShort = (dateStr: string) => {
+      const d = new Date(dateStr);
+      const day = d.getDate();
+      const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+      return `${weekday} ${day}`;
+    };
+
+    const getWorkerName = (workerId: string) => {
+      const worker = getWorker(workerId);
+      if (!worker) return '-';
+      // Return last name only for compactness
+      const parts = worker.name.split(' ');
+      const lastName = parts[parts.length - 1];
+      return worker.type === 'external' ? `${lastName}*` : lastName;
+    };
+
+    // Get assignment for a specific date, shift, and position
+    const getAssignment = (dateStr: string, shiftType: ShiftType, position: LinePosition) => {
+      return schedule.assignments.find(
+        a => a.date === dateStr && a.shiftType === shiftType && a.position === position
+      );
+    };
+
+    // Determine if a day is weekend
+    const isWeekend = (dateStr: string) => {
+      const d = new Date(dateStr);
+      return d.getDay() === 0 || d.getDay() === 6;
+    };
+
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6 print:hidden">
+          <h3 className="text-lg font-bold text-steel-700">
+            Monthly Schedule - {MONTH_NAMES[month - 1]} {year}
+          </h3>
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-2 border-2 border-steel-200 text-steel-600 font-semibold hover:bg-steel-50 transition-colors"
+          >
+            Print
+          </button>
+        </div>
+
+        <div className="hidden print:block text-center mb-4">
+          <h2 className="text-lg font-bold">On-Call Schedule - {MONTH_NAMES[month - 1]} {year}</h2>
+        </div>
+
+        <div className="card-sharp overflow-x-auto print:shadow-none print:border">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-steel-100">
+                <th className="px-2 py-2 text-left font-semibold text-steel-600 border-b border-steel-200">Date</th>
+                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-rose-50">Supervisor</th>
+                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-sky-50">1st Line</th>
+                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-emerald-50">2nd Line</th>
+                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-amber-50">3rd Line</th>
+                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-indigo-50">Night</th>
+              </tr>
+            </thead>
+            <tbody>
+              {datesInMonth.map(date => {
+                const dateStr = date.toISOString().split('T')[0];
+                const weekend = isWeekend(dateStr);
+                const shiftType: ShiftType = weekend ? 'day' : 'evening';
+
+                // Get assignments for this day
+                const supervisor = getAssignment(dateStr, shiftType, 'supervisor');
+                const firstLine = getAssignment(dateStr, shiftType, 'first_line');
+                const secondLine = getAssignment(dateStr, shiftType, 'second_line');
+                const thirdLine = getAssignment(dateStr, shiftType, 'third_line');
+                const nightFirstLine = getAssignment(dateStr, 'night', 'first_line');
+
+                return (
+                  <tr key={dateStr} className={`border-b border-steel-100 ${weekend ? 'bg-amber-50/30' : ''}`}>
+                    <td className="px-2 py-1.5 font-mono font-medium text-steel-700 whitespace-nowrap">
+                      {formatDateShort(dateStr)}
+                    </td>
+                    <td className="px-2 py-1.5 text-center border-l border-steel-100">
+                      {supervisor ? getWorkerName(supervisor.workerId) : '-'}
+                    </td>
+                    <td className="px-2 py-1.5 text-center border-l border-steel-100">
+                      {firstLine ? getWorkerName(firstLine.workerId) : '-'}
+                    </td>
+                    <td className="px-2 py-1.5 text-center border-l border-steel-100">
+                      {secondLine ? getWorkerName(secondLine.workerId) : '-'}
+                    </td>
+                    <td className="px-2 py-1.5 text-center border-l border-steel-100">
+                      {thirdLine ? getWorkerName(thirdLine.workerId) : '-'}
+                    </td>
+                    <td className="px-2 py-1.5 text-center border-l border-steel-100 bg-indigo-50/30">
+                      {nightFirstLine ? getWorkerName(nightFirstLine.workerId) : '-'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="text-xs text-steel-400 mt-3 print:mt-2">
+          * = External staff
+        </p>
+      </div>
+    );
+  };
+
   return (
     <div>
       {/* Toolbar */}
@@ -290,7 +399,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
           <div className="flex border-2 border-steel-200">
             <button
               onClick={() => setViewMode('calendar')}
-              className={`px-4 py-2 text-sm font-semibold ${
+              className={`px-3 py-2 text-sm font-semibold ${
                 viewMode === 'calendar' ? 'bg-clinic-500 text-white' : 'text-steel-600 hover:bg-steel-50'
               }`}
             >
@@ -298,11 +407,19 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-4 py-2 text-sm font-semibold border-l-2 border-steel-200 ${
+              className={`px-3 py-2 text-sm font-semibold border-l-2 border-steel-200 ${
                 viewMode === 'list' ? 'bg-clinic-500 text-white' : 'text-steel-600 hover:bg-steel-50'
               }`}
             >
               Stats
+            </button>
+            <button
+              onClick={() => setViewMode('distribution')}
+              className={`px-3 py-2 text-sm font-semibold border-l-2 border-steel-200 ${
+                viewMode === 'distribution' ? 'bg-clinic-500 text-white' : 'text-steel-600 hover:bg-steel-50'
+              }`}
+            >
+              Lists
             </button>
           </div>
 
@@ -353,7 +470,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
             ))}
           </div>
         </>
-      ) : (
+      ) : viewMode === 'list' ? (
         <>
           <StatsPanel />
           <h3 className="text-sm font-bold text-steel-700 uppercase tracking-wide mb-4">
@@ -361,6 +478,8 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
           </h3>
           <WorkerLoadTable />
         </>
+      ) : (
+        <DistributionLists />
       )}
 
       {editingAssignment && <EligibleWorkerSelector assignment={editingAssignment} />}

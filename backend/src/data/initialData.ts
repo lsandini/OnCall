@@ -1,4 +1,4 @@
-import { Worker, WeeklyAvailability } from '../types/index.js';
+import { Worker, WeeklyAvailability, ShiftConfiguration, ShiftTypeDefinition, DailyShiftRequirement, LinePosition } from '../types/index.js';
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
@@ -109,4 +109,74 @@ export function createInitialWorkers(): Worker[] {
 export function createInitialAvailability(): WeeklyAvailability[] {
   // Start with empty availability - workers are available by default
   return [];
+}
+
+// Create default shift configuration for Internal Medicine
+export function createDefaultShiftConfiguration(): ShiftConfiguration {
+  const now = new Date().toISOString();
+
+  const shiftTypes: ShiftTypeDefinition[] = [
+    {
+      id: 'day',
+      name: 'Day',
+      startTime: '09:00',
+      endTime: '22:00',
+      crossesMidnight: false
+    },
+    {
+      id: 'evening',
+      name: 'Evening',
+      startTime: '15:00',
+      endTime: '22:00',
+      crossesMidnight: false
+    },
+    {
+      id: 'night',
+      name: 'Night',
+      startTime: '22:00',
+      endTime: '08:00',
+      crossesMidnight: true
+    }
+  ];
+
+  const dailyRequirements: DailyShiftRequirement[] = [
+    // Sunday (0) - Weekend: Day + Night
+    { dayOfWeek: 0, shiftTypeId: 'day', positions: ['supervisor', 'first_line', 'second_line'] },
+    { dayOfWeek: 0, shiftTypeId: 'night', positions: ['first_line'] },
+
+    // Monday (1) - Weekday: Evening + Night (with 3rd line)
+    { dayOfWeek: 1, shiftTypeId: 'evening', positions: ['supervisor', 'first_line', 'second_line', 'third_line'] },
+    { dayOfWeek: 1, shiftTypeId: 'night', positions: ['first_line'] },
+
+    // Tuesday (2) - Weekday: Evening + Night
+    { dayOfWeek: 2, shiftTypeId: 'evening', positions: ['supervisor', 'first_line', 'second_line'] },
+    { dayOfWeek: 2, shiftTypeId: 'night', positions: ['first_line'] },
+
+    // Wednesday (3) - Weekday: Evening + Night
+    { dayOfWeek: 3, shiftTypeId: 'evening', positions: ['supervisor', 'first_line', 'second_line'] },
+    { dayOfWeek: 3, shiftTypeId: 'night', positions: ['first_line'] },
+
+    // Thursday (4) - Weekday: Evening + Night
+    { dayOfWeek: 4, shiftTypeId: 'evening', positions: ['supervisor', 'first_line', 'second_line'] },
+    { dayOfWeek: 4, shiftTypeId: 'night', positions: ['first_line'] },
+
+    // Friday (5) - Weekday: Evening + Night (with 3rd line)
+    { dayOfWeek: 5, shiftTypeId: 'evening', positions: ['supervisor', 'first_line', 'second_line', 'third_line'] },
+    { dayOfWeek: 5, shiftTypeId: 'night', positions: ['first_line'] },
+
+    // Saturday (6) - Weekend: Day + Night
+    { dayOfWeek: 6, shiftTypeId: 'day', positions: ['supervisor', 'first_line', 'second_line'] },
+    { dayOfWeek: 6, shiftTypeId: 'night', positions: ['first_line'] }
+  ];
+
+  return {
+    id: generateId(),
+    name: 'Internal Medicine',
+    description: 'Default shift configuration for Internal Medicine clinic',
+    shiftTypes,
+    dailyRequirements,
+    createdAt: now,
+    updatedAt: now,
+    isActive: true
+  };
 }

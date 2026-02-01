@@ -1,10 +1,11 @@
 import express from 'express';
 import cors from 'cors';
-import { Worker, WeeklyAvailability, MonthlySchedule } from './types/index.js';
-import { createInitialWorkers, createInitialAvailability } from './data/initialData.js';
+import { Worker, WeeklyAvailability, MonthlySchedule, ShiftConfiguration } from './types/index.js';
+import { createInitialWorkers, createInitialAvailability, createDefaultShiftConfiguration } from './data/initialData.js';
 import { createWorkersRouter } from './routes/workers.js';
 import { createAvailabilityRouter } from './routes/availability.js';
 import { createSchedulesRouter } from './routes/schedules.js';
+import { createConfigRouter } from './routes/config.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -17,6 +18,7 @@ app.use(express.json());
 let workers: Worker[] = createInitialWorkers();
 let availability: WeeklyAvailability[] = createInitialAvailability();
 let schedules: MonthlySchedule[] = [];
+let configurations: ShiftConfiguration[] = [createDefaultShiftConfiguration()];
 
 // Data accessors
 const getWorkers = () => workers;
@@ -25,11 +27,15 @@ const getAvailability = () => availability;
 const setAvailability = (a: WeeklyAvailability[]) => { availability = a; };
 const getSchedules = () => schedules;
 const setSchedules = (s: MonthlySchedule[]) => { schedules = s; };
+const getConfigurations = () => configurations;
+const setConfigurations = (c: ShiftConfiguration[]) => { configurations = c; };
+const getActiveConfiguration = () => configurations.find(c => c.isActive);
 
 // Routes
 app.use('/api/workers', createWorkersRouter(getWorkers, setWorkers));
 app.use('/api/availability', createAvailabilityRouter(getAvailability, setAvailability));
-app.use('/api/schedules', createSchedulesRouter(getWorkers, getAvailability, getSchedules, setSchedules));
+app.use('/api/schedules', createSchedulesRouter(getWorkers, getAvailability, getSchedules, setSchedules, getActiveConfiguration));
+app.use('/api/config', createConfigRouter(getConfigurations, setConfigurations));
 
 // Health check
 app.get('/api/health', (_req, res) => {

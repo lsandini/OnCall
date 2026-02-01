@@ -11,6 +11,8 @@ export interface Worker {
   type: WorkerType;
   canDoubleSift: boolean;
   yearOfStudy?: number;
+  startDate?: string; // Employment start date (YYYY-MM-DD)
+  endDate?: string; // Employment end date (YYYY-MM-DD), undefined = ongoing
   active: boolean;
   createdAt: string;
 }
@@ -44,4 +46,30 @@ export interface CalendarWeek {
   week: number;
   startDate: string;
   endDate: string;
+}
+
+// Configurable shift structure types
+export interface ShiftTypeDefinition {
+  id: string;              // e.g., 'evening', 'night', 'day'
+  name: string;            // Display name
+  startTime: string;       // "15:00"
+  endTime: string;         // "22:00"
+  crossesMidnight: boolean;
+}
+
+export interface DailyShiftRequirement {
+  dayOfWeek: number;       // 0=Sunday ... 6=Saturday
+  shiftTypeId: string;     // Reference to ShiftTypeDefinition.id
+  positions: LinePosition[];
+}
+
+export interface ShiftConfiguration {
+  id: string;
+  name: string;            // e.g., "Internal Medicine"
+  description?: string;
+  shiftTypes: ShiftTypeDefinition[];
+  dailyRequirements: DailyShiftRequirement[];
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
 }

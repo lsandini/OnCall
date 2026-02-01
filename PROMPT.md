@@ -2,7 +2,14 @@
 
 ## Project Description
 
-Build a complete full-stack semi-automated shift scheduling system for a hospital internal medicine clinic. The system assigns workers to shifts based on their roles, availability preferences, and balances workload fairly.
+Build a complete full-stack semi-automated shift scheduling system for hospital clinics. The system assigns workers to shifts based on their roles, availability preferences, employment dates, and balances workload fairly.
+
+**Key features**:
+- **Configurable shift structure** per clinic (one-time setup)
+- **Employment duration tracking** - workers have start/end dates
+- **Monthly calendar availability** - intuitive day-by-day availability setting
+- **Distribution lists** - printable monthly schedule tables
+- **Personnel filtered by month** - only show workers employed in selected month
 
 ## Personnel Structure
 
@@ -14,6 +21,14 @@ The clinic has the following staff categories:
    - Students are in years 4, 5, or 6 of medical school
 4. **External workers** - Both residents and students can be external (on-demand). Externals can optionally work double shifts (evening + night consecutively)
 
+### Employment Duration
+
+Each worker can have:
+- **Start Date**: When they begin working (optional, defaults to always employed)
+- **End Date**: When they stop working (optional, defaults to ongoing employment)
+
+Workers only appear in the personnel list for months where their employment overlaps. The scheduler also respects these dates.
+
 ## Line Hierarchy
 
 - **Supervisor**: Senior specialists only
@@ -21,52 +36,59 @@ The clinic has the following staff categories:
 - **2nd Line**: Residents or students
 - **3rd Line**: Residents or students
 
-## Shift Schedule
+## Shift Configuration (One-Time Setup)
 
-### Weekdays (Monday-Friday)
+Administrators configure the clinic's shift structure via a Configuration tab. This defines:
 
-**Evening Shift (15:00-22:00):**
-- 1 Supervisor (senior specialist)
-- 1 First-line worker (resident)
-- 1 Second-line worker (resident or student)
-- On **Mondays and Fridays only**: 1 Third-line worker (resident or student)
+1. **Shift Types**: Define shift names and time ranges
+   - Day: 09:00-22:00 (weekends)
+   - Evening: 15:00-22:00 (weekdays)
+   - Night: 22:00-08:00 (crosses midnight)
 
-**Night Shift (22:00-08:00):**
-- 1 First-line worker (resident only)
+2. **Daily Requirements**: For each day of the week, specify which shifts run and what positions are needed
 
-### Weekends (Saturday-Sunday)
+3. **Position Matrix**: Visual grid showing day vs shift type vs positions required
 
-Senior specialists work 24-hour supervisor shifts (08:00-08:00), but the other positions rotate:
+### Default Configuration: Internal Medicine
 
-**Day Shift (08:00-15:00):**
-- 1 First-line worker (resident)
-- 1 Second-line worker (resident or student)
+**Supervisor On-Call Schedule:**
+| Day | On-Call Period |
+|-----|----------------|
+| Monday-Thursday | 15:00 to 08:00 next day |
+| Friday | 15:00 to 09:00 Saturday |
+| Saturday | 09:00 to 09:00 Sunday (24h) |
+| Sunday | 09:00 to 08:00 Monday |
 
-**Evening Shift (15:00-22:00):**
-- 1 First-line worker (resident)
-- 1 Second-line worker (resident or student)
+**Weekdays (Monday-Friday):**
+- Evening Shift (15:00-22:00): Supervisor + 1st Line + 2nd Line
+  - Mondays and Fridays: Add 3rd Line
+- Night Shift (22:00-08:00): 1st Line only (Supervisor continues)
 
-**Night Shift (22:00-08:00):**
-- 1 First-line worker (resident only)
+**Weekends (Saturday-Sunday):**
+- Day Shift (09:00-22:00): Supervisor + 1st Line + 2nd Line
+- Night Shift: 1st Line only (Supervisor continues)
 
 ## Availability System
 
-- Workers set availability on a **weekly basis** (52 calendar weeks per year)
-- For each day/shift combination, workers can mark:
-  - **Available** (default) - Can be assigned, used for balancing
-  - **Preferred** - Worker wants this shift, prioritize assigning
-  - **Unavailable** - Worker cannot/will not work, avoid assigning
-- Schedule generation is done **one month at a time**
+- Workers set availability via a **monthly calendar view**
+- Click any day to cycle through statuses:
+  - **Default** (white) - Available, used for balancing
+  - **Preferred** (green) - Worker wants this day, prioritize assigning
+  - **Unavailable** (red) - Worker cannot work, avoid assigning
+- Navigate between months with arrow buttons
+- Changes save automatically
+- Availability applies to all relevant shifts for that worker's role on that day
 
 ## Scheduling Algorithm Requirements
 
 1. Respect role constraints (who can fill which line position)
-2. Prioritize workers who marked shifts as "preferred"
-3. Avoid assigning workers to "unavailable" shifts
-4. Balance workload evenly among workers of the same role
-5. Permanent staff slightly preferred over external
-6. External workers with double-shift capability can be assigned evening + night on the same day
-7. Regular workers should not work multiple shifts on the same day
+2. Check worker employment dates - only assign if employed on that date
+3. Prioritize workers who marked days as "preferred"
+4. Avoid assigning workers to "unavailable" days
+5. Balance workload evenly among workers of the same role
+6. Permanent staff slightly preferred over external
+7. External workers with double-shift capability can be assigned evening + night on same day
+8. Regular workers should not work multiple shifts on the same day
 
 ## Initial Data
 
@@ -76,6 +98,7 @@ Pre-populate the system with:
 - 1 External Resident (can double-shift)
 - 10 Students (permanent, mix of years 4, 5, 6)
 - 3 External Students (can double-shift)
+- Default Internal Medicine shift configuration
 
 Use Italian names for realism. Start calendar from **January 1, 2026**.
 
@@ -91,61 +114,120 @@ Use Italian names for realism. Start calendar from **January 1, 2026**.
 ## User Interface Requirements
 
 ### Layout
-- Tabbed interface with two main sections:
-  1. **Personnel Management Tab**: List, add, edit, remove workers; set availability
-  2. **Monthly Schedule Tab**: View/generate schedule for selected month
+- Tabbed interface with three main sections:
+  1. **Personnel Management Tab**: List workers, set availability, manage employment dates
+  2. **Monthly Schedule Tab**: View/generate schedule, distribution lists
+  3. **Configuration Tab**: One-time setup of shift structure
 
 ### Header
-- Month/year selector dropdowns
+- Month/year selector dropdowns (affects personnel filtering and schedule view)
 - App branding
 
-### Personnel Tab Features
-- Filter by role (senior specialist, resident, student)
-- Filter by type (permanent, external)
-- Stats cards showing counts per category
-- Worker cards with: name, role, year (for students), external badge, double-shift badge
-- Actions: Edit, Remove, Set Availability
-- Availability editor: weekly grid (7 days x shifts), click to cycle status, double-click to apply to all 52 weeks
+### Personnel Management Tab
 
-### Schedule Tab Features
-- Calendar view showing all days of the month
-- Each day shows shifts with assigned workers by position
-- Color-coded by shift type and position
-- Click any assignment to swap to different eligible worker
-- "Stats" view showing workload distribution per worker
-- Generate/Regenerate schedule button
+**List View** (not cards/tiles):
+- Table with columns: Name, Role, Type, Start Date, End Date, Flags, Actions
+- Only show workers whose employment dates overlap with selected month
+- Filter dropdowns for role and type
+- Stats summary showing count per role
 
-## Design Requirements
+**Actions per worker:**
+- **Avail**: Open availability calendar
+- **Edit**: Modify worker details including employment dates
+- **Del**: Deactivate worker (soft delete)
 
-Create a distinctive, professional aesthetic:
-- **No gradients**
-- **No purple tints**
-- Clean, clinical feel appropriate for healthcare
-- Unique typography (suggest: DM Sans for UI, JetBrains Mono for data)
-- Color scheme: teal/cyan accents (#0fb897 range) on neutral gray/white
-- Sharp shadows instead of soft (e.g., `4px 4px 0px rgba(0,0,0,0.1)`)
-- Subtle dot-grid background pattern
-- Crisp borders (2px solid)
-- Uppercase labels with letter-spacing for section headers
+**Add Personnel button** opens form with:
+- Name, Role, Type, Year of Study (for students)
+- Can Double Shift checkbox (for externals)
+- Start Date and End Date fields
+
+### Availability Calendar (Modal)
+
+- Monthly calendar grid (7 columns for Mon-Sun)
+- Shows actual dates for the month
+- Navigate months with arrow buttons
+- Click day to cycle: Default → Preferred → Unavailable → Default
+- Color legend at top
+- Changes save automatically
+- Compact design
+
+### Schedule Tab
+
+**Three view modes** (toggle buttons):
+
+1. **Calendar View**:
+   - Grid showing all days of the month
+   - Each day shows shifts with assigned workers by position
+   - Color-coded by shift type
+   - Click any assignment to swap to different eligible worker
+   - Weekend days highlighted
+
+2. **Stats View**:
+   - Table showing workload distribution
+   - Columns: Name, Role, Shift Count
+   - Sorted by shift count descending
+
+3. **Lists View** (Distribution Lists):
+   - Single table with days as rows
+   - Columns: Date, Supervisor, 1st Line, 2nd Line, 3rd Line, Night
+   - Shows last names only for compactness
+   - External staff marked with asterisk (*)
+   - Weekend rows highlighted
+   - Print button for distribution
+
+**Generate/Regenerate button** creates schedule using configuration and respecting availability.
+
+### Configuration Tab
+
+- Display current configuration name and description
+- Edit button to enter edit mode
+
+**Shift Types Section:**
+- Cards for each shift type (Day, Evening, Night)
+- Editable start/end times in edit mode
+- Shows "Crosses midnight" indicator for night shift
+
+**Daily Requirements Matrix:**
+- Table with days as rows
+- Columns grouped by shift type, sub-columns for each position
+- Toggle buttons to enable/disable positions per day/shift
+- Visual indicators for required (+) vs not required (-)
+
+- Save/Cancel buttons in edit mode
+- Last updated timestamp
 
 ## API Endpoints
 
 ```
+# Configuration
+GET    /api/config                     - Get active shift configuration
+GET    /api/config/all                 - Get all configurations
+PUT    /api/config/:id                 - Update configuration
+PUT    /api/config/:id/activate        - Set configuration as active
+
+# Workers
 GET    /api/workers                    - List all workers
+GET    /api/workers/:id                - Get single worker
 POST   /api/workers                    - Create worker
 PUT    /api/workers/:id                - Update worker
 DELETE /api/workers/:id                - Soft delete (deactivate)
 
+# Availability
 GET    /api/availability               - List all availability entries
 GET    /api/availability/worker/:id    - Get worker's availability
+GET    /api/availability/week/:year/:week - Get availability for a week
 POST   /api/availability               - Set single availability entry
 POST   /api/availability/batch         - Batch update availability
+DELETE /api/availability               - Delete availability entry
 
+# Schedules
 GET    /api/schedules                  - List all generated schedules
 GET    /api/schedules/:year/:month     - Get specific month's schedule
 POST   /api/schedules/generate         - Generate schedule for month
 PUT    /api/schedules/:year/:month/assignment/:id - Update single assignment
+DELETE /api/schedules/:year/:month     - Delete month's schedule
 
+# Utilities
 GET    /api/calendar/weeks/:year       - Get week date ranges for year
 GET    /api/health                     - Health check
 ```
@@ -153,35 +235,67 @@ GET    /api/health                     - Health check
 ## Data Models
 
 ```typescript
+// === Types ===
 type WorkerRole = 'senior_specialist' | 'resident' | 'student';
 type WorkerType = 'permanent' | 'external';
 type ShiftType = 'day' | 'evening' | 'night';
 type LinePosition = 'supervisor' | 'first_line' | 'second_line' | 'third_line';
 type AvailabilityStatus = 'available' | 'preferred' | 'unavailable';
 
+// === Shift Configuration ===
+interface ShiftTypeDefinition {
+  id: string;              // e.g., 'evening', 'night', 'day'
+  name: string;            // Display name
+  startTime: string;       // "15:00"
+  endTime: string;         // "22:00"
+  crossesMidnight: boolean;
+}
+
+interface DailyShiftRequirement {
+  dayOfWeek: number;       // 0=Sunday ... 6=Saturday
+  shiftTypeId: string;     // Reference to ShiftTypeDefinition.id
+  positions: LinePosition[];
+}
+
+interface ShiftConfiguration {
+  id: string;
+  name: string;            // e.g., "Internal Medicine"
+  description?: string;
+  shiftTypes: ShiftTypeDefinition[];
+  dailyRequirements: DailyShiftRequirement[];
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
+}
+
+// === Worker ===
 interface Worker {
   id: string;
   name: string;
   role: WorkerRole;
   type: WorkerType;
-  canDoubleSift: boolean;
-  yearOfStudy?: number; // 4, 5, or 6 for students
+  canDoubleSift: boolean;  // For externals: can do evening + night
+  yearOfStudy?: number;    // For students: 4, 5, or 6
+  startDate?: string;      // Employment start date (YYYY-MM-DD)
+  endDate?: string;        // Employment end date (YYYY-MM-DD)
   active: boolean;
   createdAt: string;
 }
 
+// === Availability ===
 interface WeeklyAvailability {
   workerId: string;
   year: number;
-  week: number; // 1-52
-  day: number; // 0=Sunday through 6=Saturday
+  week: number;            // ISO week 1-52
+  day: number;             // 0=Sunday through 6=Saturday
   shiftType: ShiftType;
   status: AvailabilityStatus;
 }
 
+// === Schedule ===
 interface ShiftAssignment {
   id: string;
-  date: string; // YYYY-MM-DD
+  date: string;            // YYYY-MM-DD
   shiftType: ShiftType;
   position: LinePosition;
   workerId: string;
@@ -190,10 +304,59 @@ interface ShiftAssignment {
 
 interface MonthlySchedule {
   year: number;
-  month: number; // 1-12
+  month: number;           // 1-12
   assignments: ShiftAssignment[];
   generatedAt: string;
 }
+```
+
+## Design Requirements
+
+Create a distinctive, professional aesthetic:
+- **No gradients**
+- **No purple tints**
+- Clean, clinical feel appropriate for healthcare
+- Color scheme: teal/cyan accents on neutral gray/white
+- Sharp shadows instead of soft (e.g., `4px 4px 0px rgba(0,0,0,0.1)`)
+- Crisp borders (2px solid)
+- Uppercase labels with letter-spacing for section headers
+- Compact, information-dense layouts
+- Print-friendly distribution lists
+
+## File Structure
+
+```
+/backend
+  /src
+    /data
+      initialData.ts       - Default workers and configuration
+    /routes
+      workers.ts           - Worker CRUD endpoints
+      availability.ts      - Availability endpoints
+      schedules.ts         - Schedule generation and management
+      config.ts            - Configuration endpoints
+    /services
+      scheduler.ts         - Schedule generation algorithm
+    /types
+      index.ts             - All TypeScript interfaces
+    index.ts               - Express app setup
+
+/frontend
+  /src
+    /components
+      WorkersTab.tsx       - Personnel list view
+      WorkerForm.tsx       - Add/edit worker modal
+      AvailabilityEditor.tsx - Monthly calendar modal
+      ScheduleTab.tsx      - Calendar, stats, and lists views
+      ConfigurationTab.tsx - Shift configuration editor
+    /hooks
+      useApi.ts            - API client hooks
+    /types
+      index.ts             - TypeScript interfaces
+    /utils
+      helpers.ts           - Constants and formatting
+    App.tsx                - Main app with tabs
+    main.tsx               - React entry point
 ```
 
 ## Deliverables
@@ -203,6 +366,6 @@ interface MonthlySchedule {
 3. TypeScript throughout (strict mode)
 4. All dependencies installable via `npm install`
 5. Application runnable with `npm run dev` in both directories
-6. README.md with setup instructions and 30-second demo script
+6. README.md with setup instructions
 
 Build the entire application in one pass, fully operational without additional modifications needed.

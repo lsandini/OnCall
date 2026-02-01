@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Worker, WorkerRole, WorkerType } from '../types';
 import { useApi } from '../hooks/useApi';
-import { ROLE_LABELS } from '../utils/helpers';
+import { ROLE_LABELS, MONTH_NAMES } from '../utils/helpers';
 import WorkerForm from './WorkerForm';
 import AvailabilityEditor from './AvailabilityEditor';
 
@@ -9,9 +9,33 @@ interface Props {
   workers: Worker[];
   onWorkersChange: () => void;
   selectedYear: number;
+  selectedMonth: number;
 }
 
-export default function WorkersTab({ workers, onWorkersChange, selectedYear }: Props) {
+// Check if a worker is active during a specific month
+function isWorkerActiveInMonth(worker: Worker, year: number, month: number): boolean {
+  if (!worker.active) return false;
+
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month, 0); // Last day of month
+
+  // If no start date, assume always started
+  const startDate = worker.startDate ? new Date(worker.startDate) : new Date(0);
+  // If no end date, assume ongoing
+  const endDate = worker.endDate ? new Date(worker.endDate) : new Date(9999, 11, 31);
+
+  // Worker is active if their employment period overlaps with the month
+  return startDate <= monthEnd && endDate >= monthStart;
+}
+
+// Format date for display
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+}
+
+export default function WorkersTab({ workers, onWorkersChange, selectedYear, selectedMonth }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [availabilityWorker, setAvailabilityWorker] = useState<Worker | null>(null);
@@ -20,12 +44,20 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear }: P
 
   const api = useApi();
 
-  const filteredWorkers = workers.filter(w => {
-    if (!w.active) return false;
-    if (roleFilter !== 'all' && w.role !== roleFilter) return false;
-    if (typeFilter !== 'all' && w.type !== typeFilter) return false;
-    return true;
-  });
+  // Filter workers by role/type and active in current month
+  const filteredWorkers = useMemo(() => {
+    return workers.filter(w => {
+      if (!isWorkerActiveInMonth(w, selectedYear, selectedMonth)) return false;
+      if (roleFilter !== 'all' && w.role !== roleFilter) return false;
+      if (typeFilter !== 'all' && w.type !== typeFilter) return false;
+      return true;
+    });
+  }, [workers, selectedYear, selectedMonth, roleFilter, typeFilter]);
+
+  // Group by role
+  const seniorSpecialists = filteredWorkers.filter(w => w.role === 'senior_specialist');
+  const residents = filteredWorkers.filter(w => w.role === 'resident');
+  const students = filteredWorkers.filter(w => w.role === 'student');
 
   const handleEdit = (worker: Worker) => {
     setEditingWorker(worker);
@@ -52,94 +84,115 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear }: P
     onWorkersChange();
   };
 
-  // Group workers by role
-  const seniorSpecialists = filteredWorkers.filter(w => w.role === 'senior_specialist');
-  const residents = filteredWorkers.filter(w => w.role === 'resident');
-  const students = filteredWorkers.filter(w => w.role === 'student');
-
-  const WorkerCard = ({ worker }: { worker: Worker }) => (
-    <div className="card-sharp p-4 transition-all hover:-translate-y-0.5">
-      <div className="flex justify-between items-start mb-3">
-        <div>
-          <h4 className="font-semibold text-steel-900">{worker.name}</h4>
-          <p className="text-xs text-steel-500 font-mono uppercase">
-            {ROLE_LABELS[worker.role]}
-            {worker.yearOfStudy && ` // Year ${worker.yearOfStudy}`}
-          </p>
-        </div>
-        {worker.type === 'external' && (
-          <span className="badge bg-amber-50 border-amber-300 text-amber-700">
-            EXT
-          </span>
+  const WorkerRow = ({ worker }: { worker: Worker }) => (
+    <tr className="border-b border-steel-100 hover:bg-steel-50">
+      <td className="py-3 px-4">
+        <div className="font-medium text-steel-900">{worker.name}</div>
+      </td>
+      <td className="py-3 px-4">
+        <span className="text-xs font-mono text-steel-600 uppercase">{ROLE_LABELS[worker.role]}</span>
+        {worker.yearOfStudy && (
+          <span className="text-xs text-steel-400 ml-1">Y{worker.yearOfStudy}</span>
         )}
-      </div>
-
-      <div className="flex items-center gap-2 text-xs text-steel-500 mb-3">
+      </td>
+      <td className="py-3 px-4">
+        {worker.type === 'external' ? (
+          <span className="text-xs px-2 py-0.5 bg-amber-50 border border-amber-300 text-amber-700">EXT</span>
+        ) : (
+          <span className="text-xs text-steel-400">Permanent</span>
+        )}
+      </td>
+      <td className="py-3 px-4 text-xs font-mono text-steel-500">
+        {formatDate(worker.startDate)}
+      </td>
+      <td className="py-3 px-4 text-xs font-mono text-steel-500">
+        {formatDate(worker.endDate)}
+      </td>
+      <td className="py-3 px-4">
         {worker.canDoubleSift && (
-          <span className="badge bg-clinic-50 border-clinic-300 text-clinic-700">
-            Double Shifts
-          </span>
+          <span className="text-xs px-2 py-0.5 bg-clinic-50 border border-clinic-300 text-clinic-700">2x</span>
         )}
-      </div>
-
-      <div className="flex gap-2 pt-2 border-t border-steel-100">
-        <button
-          onClick={() => setAvailabilityWorker(worker)}
-          className="flex-1 px-3 py-1.5 text-xs font-semibold text-clinic-700 bg-clinic-50 border border-clinic-200 hover:bg-clinic-100 transition-colors"
-        >
-          Availability
-        </button>
-        <button
-          onClick={() => handleEdit(worker)}
-          className="px-3 py-1.5 text-xs font-semibold text-steel-600 bg-steel-50 border border-steel-200 hover:bg-steel-100 transition-colors"
-        >
-          Edit
-        </button>
-        <button
-          onClick={() => handleDelete(worker)}
-          className="px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition-colors"
-        >
-          Remove
-        </button>
-      </div>
-    </div>
+      </td>
+      <td className="py-3 px-4">
+        <div className="flex gap-1">
+          <button
+            onClick={() => setAvailabilityWorker(worker)}
+            className="px-2 py-1 text-xs font-medium text-clinic-700 hover:bg-clinic-50 transition-colors"
+          >
+            Avail
+          </button>
+          <button
+            onClick={() => handleEdit(worker)}
+            className="px-2 py-1 text-xs font-medium text-steel-600 hover:bg-steel-100 transition-colors"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => handleDelete(worker)}
+            className="px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
+          >
+            Del
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 
-  const WorkerSection = ({ title, workers, color }: { title: string; workers: Worker[]; color: string }) => (
-    <div className="mb-8">
-      <div className="flex items-center gap-3 mb-4">
-        <div className={`w-3 h-3 ${color}`}></div>
-        <h3 className="text-sm font-bold text-steel-700 uppercase tracking-wider">
-          {title}
-        </h3>
-        <span className="text-xs font-mono text-steel-400">({workers.length})</span>
+  const WorkerSection = ({ title, workers, color }: { title: string; workers: Worker[]; color: string }) => {
+    if (workers.length === 0) return null;
+    return (
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-2">
+          <div className={`w-2 h-2 ${color}`}></div>
+          <h3 className="text-xs font-bold text-steel-600 uppercase tracking-wider">
+            {title}
+          </h3>
+          <span className="text-xs font-mono text-steel-400">({workers.length})</span>
+        </div>
+        <div className="card-sharp overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-steel-50 text-left">
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">Name</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">Role</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">Type</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">Start</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">End</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">Flags</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workers.map(w => <WorkerRow key={w.id} worker={w} />)}
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {workers.map(w => <WorkerCard key={w.id} worker={w} />)}
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div>
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
+          <span className="text-sm text-steel-500">
+            Showing personnel active in <strong>{MONTH_NAMES[selectedMonth - 1]} {selectedYear}</strong>
+          </span>
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value as WorkerRole | 'all')}
-            className="border-2 border-steel-200 px-3 py-2 text-sm font-medium bg-white focus:outline-none focus:border-clinic-500"
+            className="border border-steel-200 px-2 py-1 text-sm bg-white focus:outline-none focus:border-clinic-500"
           >
             <option value="all">All Roles</option>
             <option value="senior_specialist">Senior Specialists</option>
             <option value="resident">Residents</option>
             <option value="student">Students</option>
           </select>
-
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as WorkerType | 'all')}
-            className="border-2 border-steel-200 px-3 py-2 text-sm font-medium bg-white focus:outline-none focus:border-clinic-500"
+            className="border border-steel-200 px-2 py-1 text-sm bg-white focus:outline-none focus:border-clinic-500"
           >
             <option value="all">All Types</option>
             <option value="permanent">Permanent</option>
@@ -155,44 +208,36 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear }: P
         </button>
       </div>
 
-      {/* Stats Bar */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        <div className="card-sharp p-4">
-          <div className="text-2xl font-bold text-steel-900 font-mono">{seniorSpecialists.length}</div>
-          <div className="text-xs text-steel-500 uppercase tracking-wide">Supervisors</div>
+      {/* Stats */}
+      <div className="flex gap-6 mb-6 text-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-rose-500"></div>
+          <span className="text-steel-600">{seniorSpecialists.length} Supervisors</span>
         </div>
-        <div className="card-sharp p-4">
-          <div className="text-2xl font-bold text-steel-900 font-mono">{residents.length}</div>
-          <div className="text-xs text-steel-500 uppercase tracking-wide">Residents</div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-sky-500"></div>
+          <span className="text-steel-600">{residents.length} Residents</span>
         </div>
-        <div className="card-sharp p-4">
-          <div className="text-2xl font-bold text-steel-900 font-mono">{students.length}</div>
-          <div className="text-xs text-steel-500 uppercase tracking-wide">Students</div>
-        </div>
-        <div className="card-sharp p-4">
-          <div className="text-2xl font-bold text-steel-900 font-mono">
-            {workers.filter(w => w.active && w.type === 'external').length}
-          </div>
-          <div className="text-xs text-steel-500 uppercase tracking-wide">Externals</div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-emerald-500"></div>
+          <span className="text-steel-600">{students.length} Students</span>
         </div>
       </div>
 
       {/* Worker Lists */}
-      {(roleFilter === 'all' || roleFilter === 'senior_specialist') && seniorSpecialists.length > 0 && (
+      {(roleFilter === 'all' || roleFilter === 'senior_specialist') && (
         <WorkerSection title="Senior Specialists (Supervisors)" workers={seniorSpecialists} color="bg-rose-500" />
       )}
-
-      {(roleFilter === 'all' || roleFilter === 'resident') && residents.length > 0 && (
+      {(roleFilter === 'all' || roleFilter === 'resident') && (
         <WorkerSection title="Residents (1st/2nd Line)" workers={residents} color="bg-sky-500" />
       )}
-
-      {(roleFilter === 'all' || roleFilter === 'student') && students.length > 0 && (
+      {(roleFilter === 'all' || roleFilter === 'student') && (
         <WorkerSection title="Medical Students (2nd/3rd Line)" workers={students} color="bg-emerald-500" />
       )}
 
       {filteredWorkers.length === 0 && (
         <div className="text-center py-12 text-steel-500">
-          No personnel found with current filters.
+          No personnel active in {MONTH_NAMES[selectedMonth - 1]} {selectedYear} with current filters.
         </div>
       )}
 

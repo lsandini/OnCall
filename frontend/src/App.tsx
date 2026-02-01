@@ -4,8 +4,9 @@ import { useApi } from './hooks/useApi';
 import { MONTH_NAMES } from './utils/helpers';
 import WorkersTab from './components/WorkersTab';
 import ScheduleTab from './components/ScheduleTab';
+import ConfigurationTab from './components/ConfigurationTab';
 
-type TabType = 'workers' | 'schedule';
+type TabType = 'workers' | 'schedule' | 'configuration';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('workers');
@@ -108,19 +109,31 @@ export default function App() {
             >
               {MONTH_NAMES[selectedMonth - 1]} {selectedYear} Schedule
             </button>
+            <button
+              onClick={() => setActiveTab('configuration')}
+              className={`py-4 px-1 text-sm font-semibold uppercase tracking-wide transition-colors ${
+                activeTab === 'configuration'
+                  ? 'tab-active'
+                  : 'text-steel-500 hover:text-steel-700 border-b-2 border-transparent'
+              }`}
+            >
+              Configuration
+            </button>
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'workers' ? (
+        {activeTab === 'workers' && (
           <WorkersTab
             workers={workers}
             onWorkersChange={loadWorkers}
             selectedYear={selectedYear}
+            selectedMonth={selectedMonth}
           />
-        ) : (
+        )}
+        {activeTab === 'schedule' && (
           <ScheduleTab
             workers={workers}
             schedule={currentSchedule}
@@ -128,6 +141,9 @@ export default function App() {
             month={selectedMonth}
             onScheduleChange={loadSchedules}
           />
+        )}
+        {activeTab === 'configuration' && (
+          <ConfigurationTab />
         )}
       </main>
 

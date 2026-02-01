@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Worker, WeeklyAvailability, MonthlySchedule, CalendarWeek } from '../types';
+import { Worker, WeeklyAvailability, MonthlySchedule, CalendarWeek, ShiftConfiguration } from '../types';
 
 const API_BASE = '/api';
 
@@ -73,6 +73,19 @@ export function useApi() {
   const getWeeks = useCallback((year: number) =>
     fetchJson<CalendarWeek[]>(`/calendar/weeks/${year}`), [fetchJson]);
 
+  // Configuration
+  const getConfiguration = useCallback(() =>
+    fetchJson<ShiftConfiguration>('/config'), [fetchJson]);
+
+  const getAllConfigurations = useCallback(() =>
+    fetchJson<ShiftConfiguration[]>('/config/all'), [fetchJson]);
+
+  const updateConfiguration = useCallback((id: string, config: Partial<ShiftConfiguration>) =>
+    fetchJson<ShiftConfiguration>(`/config/${id}`, { method: 'PUT', body: JSON.stringify(config) }), [fetchJson]);
+
+  const activateConfiguration = useCallback((id: string) =>
+    fetchJson<ShiftConfiguration>(`/config/${id}/activate`, { method: 'PUT' }), [fetchJson]);
+
   return {
     loading,
     error,
@@ -88,6 +101,10 @@ export function useApi() {
     getSchedule,
     generateSchedule,
     updateAssignment,
-    getWeeks
+    getWeeks,
+    getConfiguration,
+    getAllConfigurations,
+    updateConfiguration,
+    activateConfiguration
   };
 }

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Worker, WeeklyAvailability, ShiftType, AvailabilityStatus } from '../types';
 import { useApi } from '../hooks/useApi';
-import { DAY_NAMES, SHIFT_LABELS } from '../utils/helpers';
+import { MONTH_NAMES } from '../utils/helpers';
 
 interface Props {
   worker: Worker;
@@ -9,23 +9,34 @@ interface Props {
   onClose: () => void;
 }
 
-const SHIFTS: ShiftType[] = ['day', 'evening', 'night'];
-const DAYS = [1, 2, 3, 4, 5, 6, 0]; // Mon-Sun
-
-const STATUS_COLORS: Record<AvailabilityStatus, string> = {
-  available: 'bg-white border-steel-200',
-  preferred: 'bg-clinic-100 border-clinic-400',
-  unavailable: 'bg-rose-100 border-rose-400'
+const STATUS_COLORS: Record<AvailabilityStatus | 'default', string> = {
+  default: 'bg-white border-steel-200 hover:bg-steel-50',
+  available: 'bg-white border-steel-200 hover:bg-steel-50', // Same as default visually
+  preferred: 'bg-clinic-100 border-clinic-400 hover:bg-clinic-200',
+  unavailable: 'bg-rose-100 border-rose-400 hover:bg-rose-200'
 };
 
-const STATUS_LABELS: Record<AvailabilityStatus, string> = {
-  available: 'Available',
-  preferred: 'Preferred',
-  unavailable: 'Unavailable'
-};
+const DAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// Get ISO week number for a date
+function getWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+// Get all shifts relevant for a worker's role
+function getRelevantShifts(role: string): ShiftType[] {
+  if (role === 'senior_specialist') {
+    return ['evening', 'day']; // Supervisors work evening (weekdays) and day (weekends)
+  }
+  return ['day', 'evening', 'night'];
+}
 
 export default function AvailabilityEditor({ worker, year, onClose }: Props) {
-  const [currentWeek, setCurrentWeek] = useState(1);
+  const [currentMonth, setCurrentMonth] = useState(1);
   const [availability, setAvailability] = useState<WeeklyAvailability[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -44,87 +55,106 @@ export default function AvailabilityEditor({ worker, year, onClose }: Props) {
     }
   };
 
-  const getStatus = (week: number, day: number, shift: ShiftType): AvailabilityStatus => {
-    const entry = availability.find(
-      a => a.week === week && a.day === day && a.shiftType === shift && a.year === year
-    );
-    return entry?.status || 'available';
-  };
-
-  const cycleStatus = async (week: number, day: number, shift: ShiftType) => {
-    const current = getStatus(week, day, shift);
-    const next: AvailabilityStatus =
-      current === 'available' ? 'preferred' :
-      current === 'preferred' ? 'unavailable' : 'available';
-
-    // Optimistic update
-    const newEntry: WeeklyAvailability = {
-      workerId: worker.id,
-      year,
-      week,
-      day,
-      shiftType: shift,
-      status: next
-    };
-
-    setAvailability(prev => {
-      const filtered = prev.filter(
-        a => !(a.week === week && a.day === day && a.shiftType === shift && a.year === year)
-      );
-      if (next !== 'available') {
-        return [...filtered, newEntry];
-      }
-      return filtered;
-    });
-
-    // Persist
-    try {
-      await api.setAvailability(newEntry);
-    } catch (e) {
-      console.error('Failed to save availability', e);
-      loadAvailability(); // Reload on error
+  // Get dates for the current month
+  const monthDates = useMemo(() => {
+    const dates: Date[] = [];
+    const firstDay = new Date(year, currentMonth - 1, 1);
+    const lastDay = new Date(year, currentMonth, 0);
+    for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+      dates.push(new Date(d));
     }
+    return dates;
+  }, [year, currentMonth]);
+
+  // Get the day offset for the first day of month (0 = Monday, 6 = Sunday)
+  const firstDayOffset = useMemo(() => {
+    const firstDay = new Date(year, currentMonth - 1, 1);
+    const day = firstDay.getDay();
+    return day === 0 ? 6 : day - 1; // Convert Sunday=0 to 6, Monday=1 to 0, etc.
+  }, [year, currentMonth]);
+
+  // Get status for a specific date (check all relevant shifts)
+  const getDateStatus = (date: Date): AvailabilityStatus | 'default' => {
+    const week = getWeekNumber(date);
+    const day = date.getDay();
+    const dateYear = date.getFullYear();
+    const relevantShifts = getRelevantShifts(worker.role);
+
+    // Find any availability entry for this date
+    const entries = availability.filter(a =>
+      a.year === dateYear &&
+      a.week === week &&
+      a.day === day &&
+      relevantShifts.includes(a.shiftType)
+    );
+
+    if (entries.length === 0) return 'default';
+
+    // If any shift is unavailable, show as unavailable
+    if (entries.some(e => e.status === 'unavailable')) return 'unavailable';
+    // If any shift is preferred, show as preferred
+    if (entries.some(e => e.status === 'preferred')) return 'preferred';
+    return 'default';
   };
 
-  const applyToAllWeeks = async (day: number, shift: ShiftType) => {
-    const status = getStatus(currentWeek, day, shift);
-    if (status === 'available') return;
+  // Cycle through statuses: default -> preferred -> unavailable -> default
+  const cycleStatus = async (date: Date) => {
+    const currentStatus = getDateStatus(date);
+    const nextStatus: AvailabilityStatus | null =
+      currentStatus === 'default' ? 'preferred' :
+      currentStatus === 'preferred' ? 'unavailable' : null; // null means remove
+
+    const week = getWeekNumber(date);
+    const day = date.getDay();
+    const dateYear = date.getFullYear();
+    const relevantShifts = getRelevantShifts(worker.role);
 
     setSaving(true);
-    const entries: WeeklyAvailability[] = [];
-    for (let w = 1; w <= 52; w++) {
-      entries.push({
-        workerId: worker.id,
-        year,
-        week: w,
-        day,
-        shiftType: shift,
-        status
-      });
-    }
 
     try {
-      await api.batchSetAvailability(entries);
+      if (nextStatus === null) {
+        // Remove all entries for this date - set back to 'available' (which removes from storage)
+        const entries = relevantShifts.map(shiftType => ({
+          workerId: worker.id,
+          year: dateYear,
+          week,
+          day,
+          shiftType,
+          status: 'available' as AvailabilityStatus
+        }));
+        await api.batchSetAvailability(entries);
+      } else {
+        // Set all relevant shifts to the new status
+        const entries = relevantShifts.map(shiftType => ({
+          workerId: worker.id,
+          year: dateYear,
+          week,
+          day,
+          shiftType,
+          status: nextStatus
+        }));
+        await api.batchSetAvailability(entries);
+      }
       await loadAvailability();
     } catch (e) {
-      console.error('Failed to apply to all weeks', e);
+      console.error('Failed to save availability', e);
     } finally {
       setSaving(false);
     }
   };
 
-  // Only show relevant shifts based on role
-  const relevantShifts = worker.role === 'senior_specialist'
-    ? ['evening' as ShiftType] // Supervisors only do evening (3PM onwards)
-    : SHIFTS;
+  const isWeekend = (date: Date) => {
+    const day = date.getDay();
+    return day === 0 || day === 6;
+  };
 
   return (
     <div className="fixed inset-0 bg-steel-900/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white border-2 border-steel-200 shadow-sharp-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white border-2 border-steel-200 shadow-sharp-lg w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-steel-200">
           <div>
-            <h2 className="text-lg font-bold text-steel-900">Availability Settings</h2>
-            <p className="text-sm text-steel-500 font-mono">{worker.name} // {year}</p>
+            <h2 className="text-lg font-bold text-steel-900">Availability Calendar</h2>
+            <p className="text-sm text-steel-500 font-mono">{worker.name}</p>
           </div>
           <button
             onClick={onClose}
@@ -134,91 +164,89 @@ export default function AvailabilityEditor({ worker, year, onClose }: Props) {
           </button>
         </div>
 
-        <div className="p-6 flex-1 overflow-auto">
-          {/* Week selector */}
-          <div className="flex items-center gap-4 mb-6">
-            <label className="text-sm font-semibold text-steel-600">Week:</label>
-            <input
-              type="range"
-              min={1}
-              max={52}
-              value={currentWeek}
-              onChange={(e) => setCurrentWeek(parseInt(e.target.value))}
-              className="flex-1"
-            />
-            <span className="font-mono text-lg font-bold text-clinic-600 w-12 text-center">
-              {currentWeek}
-            </span>
+        <div className="p-4 flex-1 overflow-auto">
+          {/* Month selector */}
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => setCurrentMonth(m => Math.max(1, m - 1))}
+              disabled={currentMonth === 1}
+              className="px-3 py-1 border-2 border-steel-200 font-semibold hover:bg-steel-50 disabled:opacity-30"
+            >
+              &larr;
+            </button>
+            <h3 className="text-xl font-bold text-steel-900">
+              {MONTH_NAMES[currentMonth - 1]} {year}
+            </h3>
+            <button
+              onClick={() => setCurrentMonth(m => Math.min(12, m + 1))}
+              disabled={currentMonth === 12}
+              className="px-3 py-1 border-2 border-steel-200 font-semibold hover:bg-steel-50 disabled:opacity-30"
+            >
+              &rarr;
+            </button>
           </div>
 
           {/* Legend */}
-          <div className="flex items-center gap-6 mb-6 text-sm">
-            <span className="text-steel-500">Click to cycle:</span>
-            {(['available', 'preferred', 'unavailable'] as AvailabilityStatus[]).map(status => (
-              <div key={status} className="flex items-center gap-2">
-                <div className={`w-6 h-6 border-2 ${STATUS_COLORS[status]}`} />
-                <span className="text-steel-600">{STATUS_LABELS[status]}</span>
+          <div className="flex items-center justify-center gap-4 mb-4 text-xs">
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 border rounded bg-white border-steel-200" />
+              <span className="text-steel-500">Default</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 border rounded bg-clinic-100 border-clinic-400" />
+              <span className="text-steel-500">Preferred</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 border rounded bg-rose-100 border-rose-400" />
+              <span className="text-steel-500">Unavailable</span>
+            </div>
+          </div>
+
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-1 max-w-md mx-auto">
+            {/* Day headers */}
+            {DAY_HEADERS.map(day => (
+              <div key={day} className="text-center text-xs font-semibold text-steel-500 uppercase py-1">
+                {day}
               </div>
             ))}
+
+            {/* Empty cells for offset */}
+            {Array.from({ length: firstDayOffset }).map((_, i) => (
+              <div key={`empty-${i}`} className="h-9" />
+            ))}
+
+            {/* Date cells */}
+            {monthDates.map(date => {
+              const status = getDateStatus(date);
+              const weekend = isWeekend(date);
+              return (
+                <button
+                  key={date.toISOString()}
+                  onClick={() => cycleStatus(date)}
+                  disabled={saving}
+                  className={`h-9 w-full border rounded flex items-center justify-center transition-colors text-sm font-mono ${STATUS_COLORS[status]} ${weekend ? 'bg-opacity-50' : ''} disabled:opacity-50`}
+                  title={status !== 'default' ? status : ''}
+                >
+                  <span className={weekend ? 'text-amber-700' : 'text-steel-700'}>
+                    {date.getDate()}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Grid */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="p-2 text-left text-xs font-semibold text-steel-500 uppercase">Shift</th>
-                  {DAYS.map(day => (
-                    <th key={day} className="p-2 text-center text-xs font-semibold text-steel-500 uppercase">
-                      {DAY_NAMES[day]}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {relevantShifts.map(shift => (
-                  <tr key={shift}>
-                    <td className="p-2 text-sm font-mono text-steel-600 whitespace-nowrap">
-                      {SHIFT_LABELS[shift]}
-                    </td>
-                    {DAYS.map(day => {
-                      const status = getStatus(currentWeek, day, shift);
-                      return (
-                        <td key={day} className="p-1">
-                          <button
-                            onClick={() => cycleStatus(currentWeek, day, shift)}
-                            onDoubleClick={() => applyToAllWeeks(day, shift)}
-                            className={`w-full h-12 border-2 transition-colors ${STATUS_COLORS[status]} hover:opacity-80`}
-                            title={`${STATUS_LABELS[status]} - Double-click to apply to all weeks`}
-                          >
-                            {status === 'preferred' && (
-                              <span className="text-clinic-600 text-lg">*</span>
-                            )}
-                            {status === 'unavailable' && (
-                              <span className="text-rose-600 text-lg">x</span>
-                            )}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <p className="text-xs text-steel-400 mt-4">
-            Tip: Double-click a cell to apply the same status to all 52 weeks for that day/shift combination.
-          </p>
         </div>
 
-        <div className="px-6 py-4 border-t border-steel-200 bg-steel-50">
+        <div className="px-4 py-3 border-t border-steel-200 bg-steel-50 flex justify-between items-center">
+          <span className="text-xs text-steel-400">
+            {saving ? 'Saving...' : 'Click to cycle status'}
+          </span>
           <button
             onClick={onClose}
-            disabled={saving}
-            className="px-6 py-2 bg-clinic-500 text-white font-semibold hover:bg-clinic-600 transition-colors disabled:opacity-50"
+            className="px-4 py-1.5 bg-clinic-500 text-white text-sm font-semibold hover:bg-clinic-600 transition-colors"
           >
-            {saving ? 'Saving...' : 'Done'}
+            Done
           </button>
         </div>
       </div>
