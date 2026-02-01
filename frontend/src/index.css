@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background-color: #f6f7f9;
+  background-image:
+    radial-gradient(circle at 1px 1px, #d5dae2 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #eceef2;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #b1bac9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8795ab;
+}
+
+/* Sharp card style */
+.card-sharp {
+  @apply bg-white border-2 border-steel-200 shadow-sharp;
+}
+
+.card-sharp:hover {
+  @apply shadow-sharp-lg;
+}
+
+/* Tab active indicator */
+.tab-active {
+  @apply border-b-2 border-clinic-500 text-clinic-700;
+}
+
+/* Status badges */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 text-xs font-medium border;
+}
