@@ -114,7 +114,8 @@ export function generateMonthlySchedule(
   workers: Worker[],
   availability: WeeklyAvailability[],
   existingSchedules: MonthlySchedule[],
-  configuration?: ShiftConfiguration
+  configuration?: ShiftConfiguration,
+  holidays?: { date: string; name: string }[]
 ): MonthlySchedule {
   const assignments: ShiftAssignment[] = [];
   const dates = getDatesInMonth(year, month);
@@ -130,10 +131,14 @@ export function generateMonthlySchedule(
   // Process each date
   for (const date of dates) {
     const dayOfWeek = date.getDay();
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+    // Treat holidays as Sundays for scheduling purposes
+    const isHoliday = holidays?.some(h => h.date === dateStr);
+    const effectiveDayOfWeek = isHoliday ? 0 : dayOfWeek;
 
     // Get requirements for this day from configuration
-    const dayRequirements = dailyRequirements.filter(r => r.dayOfWeek === dayOfWeek);
+    const dayRequirements = dailyRequirements.filter(r => r.dayOfWeek === effectiveDayOfWeek);
 
     // Process each shift requirement
     for (const req of dayRequirements) {

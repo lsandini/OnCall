@@ -91,5 +91,18 @@ function createTables(db: Database.Database): void {
       positions TEXT NOT NULL,
       FOREIGN KEY (config_id) REFERENCES shift_configurations(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS holidays (
+      date TEXT NOT NULL,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'public',
+      country TEXT NOT NULL,
+      PRIMARY KEY (date, country)
+    );
   `);
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShiftConfiguration, ShiftTypeDefinition, LinePosition } from '../types';
+import { ShiftConfiguration, ShiftTypeDefinition, LinePosition, Holiday } from '../types';
 import { useApi } from '../hooks/useApi';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -23,11 +23,31 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Holiday/Region state
+  const [countries, setCountries] = useState<{ code: string; name: string }[]>([]);
+  const [states, setStates] = useState<{ code: string; name: string }[]>([]);
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [selectedCountry, setSelectedCountry] = useState('');
+  const [selectedRegion, setSelectedRegion] = useState('');
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [newHolidayDate, setNewHolidayDate] = useState('');
+  const [newHolidayName, setNewHolidayName] = useState('');
+  const [addingHoliday, setAddingHoliday] = useState(false);
+
   const api = useApi();
 
   useEffect(() => {
     loadConfiguration();
+    loadHolidayData();
   }, []);
+
+  useEffect(() => {
+    if (settings.country) {
+      loadHolidays();
+    }
+  }, [holidayYear, settings.country]);
 
   const loadConfiguration = async () => {
     setLoading(true);
@@ -41,6 +61,86 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadHolidayData = async () => {
+    try {
+      const [countriesList, currentSettings] = await Promise.all([
+        api.getCountries(),
+        api.getSettings()
+      ]);
+      setCountries(countriesList);
+      setSettings(currentSettings);
+      setSelectedCountry(currentSettings.country || 'FI');
+      setSelectedRegion(currentSettings.region || '');
+
+      if (currentSettings.country) {
+        const statesList = await api.getStates(currentSettings.country);
+        setStates(statesList);
+      }
+    } catch (e) {
+      console.error('Failed to load holiday data', e);
+    }
+  };
+
+  const loadHolidays = async () => {
+    try {
+      const h = await api.getHolidays(holidayYear);
+      setHolidays(h);
+    } catch (e) {
+      console.error('Failed to load holidays', e);
+    }
+  };
+
+  const handleCountryChange = async (code: string) => {
+    setSelectedCountry(code);
+    setSelectedRegion('');
+    try {
+      const statesList = await api.getStates(code);
+      setStates(statesList);
+    } catch {
+      setStates([]);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const updated = await api.updateSettings({
+        country: selectedCountry,
+        region: selectedRegion || undefined
+      });
+      setSettings(updated);
+      await loadHolidays();
+    } catch (e) {
+      console.error('Failed to save settings', e);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleAddHoliday = async () => {
+    if (!newHolidayDate || !newHolidayName) return;
+    setAddingHoliday(true);
+    try {
+      await api.addHoliday(newHolidayDate, newHolidayName);
+      setNewHolidayDate('');
+      setNewHolidayName('');
+      await loadHolidays();
+    } catch (e) {
+      console.error('Failed to add holiday', e);
+    } finally {
+      setAddingHoliday(false);
+    }
+  };
+
+  const handleRemoveHoliday = async (date: string) => {
+    try {
+      await api.removeHoliday(date);
+      await loadHolidays();
+    } catch (e) {
+      console.error('Failed to remove holiday', e);
     }
   };
 
@@ -149,8 +249,141 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
   const displayConfig = editMode ? editedConfig : configuration;
   if (!displayConfig) return null;
 
+  const countryName = countries.find(c => c.code === selectedCountry)?.name || selectedCountry;
+
   return (
     <div>
+      {/* Region & Holidays Section */}
+      <div className="mb-8">
+        <h3 className="text-sm font-bold text-steel-700 uppercase tracking-wider mb-4">
+          Region & Holidays
+        </h3>
+
+        <div className="card-sharp p-4 mb-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-semibold text-steel-600 uppercase mb-1">Country</label>
+              <select
+                value={selectedCountry}
+                onChange={(e) => handleCountryChange(e.target.value)}
+                className="w-full border-2 border-steel-200 px-3 py-2 text-sm focus:outline-none focus:border-clinic-500"
+              >
+                {countries.map(c => (
+                  <option key={c.code} value={c.code}>{c.name} ({c.code})</option>
+                ))}
+              </select>
+            </div>
+
+            {states.length > 0 && (
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-semibold text-steel-600 uppercase mb-1">State / Region</label>
+                <select
+                  value={selectedRegion}
+                  onChange={(e) => setSelectedRegion(e.target.value)}
+                  className="w-full border-2 border-steel-200 px-3 py-2 text-sm focus:outline-none focus:border-clinic-500"
+                >
+                  <option value="">All / Default</option>
+                  {states.map(s => (
+                    <option key={s.code} value={s.code}>{s.name} ({s.code})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <button
+              onClick={handleSaveSettings}
+              disabled={savingSettings || (selectedCountry === settings.country && selectedRegion === (settings.region || ''))}
+              className="px-4 py-2 text-sm font-semibold text-white bg-clinic-500 hover:bg-clinic-600 transition-colors shadow-sharp disabled:opacity-50"
+            >
+              {savingSettings ? 'Saving...' : 'Save Country'}
+            </button>
+          </div>
+        </div>
+
+        {/* Holiday List */}
+        <div className="card-sharp p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="font-semibold text-steel-900">
+              Holidays — {countryName} ({holidayYear})
+            </h4>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setHolidayYear(y => y - 1)}
+                className="px-2 py-1 text-sm border-2 border-steel-200 hover:bg-steel-50"
+              >
+                &larr;
+              </button>
+              <span className="font-mono text-sm font-semibold text-steel-700">{holidayYear}</span>
+              <button
+                onClick={() => setHolidayYear(y => y + 1)}
+                className="px-2 py-1 text-sm border-2 border-steel-200 hover:bg-steel-50"
+              >
+                &rarr;
+              </button>
+            </div>
+          </div>
+
+          {holidays.length === 0 ? (
+            <p className="text-sm text-steel-400 italic">No holidays for this year</p>
+          ) : (
+            <div className="space-y-1 max-h-64 overflow-y-auto mb-4">
+              {holidays.map(h => (
+                <div key={h.date} className="flex items-center justify-between px-3 py-2 hover:bg-steel-50 group">
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-sm text-steel-600 w-24">{h.date}</span>
+                    <span className="text-sm text-steel-900">{h.name}</span>
+                    <span className={`text-xs px-2 py-0.5 font-semibold ${
+                      h.type === 'custom'
+                        ? 'bg-violet-100 text-violet-700 border border-violet-200'
+                        : 'bg-sky-100 text-sky-700 border border-sky-200'
+                    }`}>
+                      {h.type}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveHoliday(h.date)}
+                    className="text-steel-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity text-lg leading-none"
+                    title="Remove holiday"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add custom holiday */}
+          <div className="flex items-end gap-3 pt-3 border-t border-steel-200">
+            <div>
+              <label className="block text-xs font-semibold text-steel-600 uppercase mb-1">Date</label>
+              <input
+                type="date"
+                value={newHolidayDate}
+                onChange={(e) => setNewHolidayDate(e.target.value)}
+                className="border-2 border-steel-200 px-3 py-1.5 text-sm focus:outline-none focus:border-clinic-500"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-steel-600 uppercase mb-1">Name</label>
+              <input
+                type="text"
+                value={newHolidayName}
+                onChange={(e) => setNewHolidayName(e.target.value)}
+                placeholder="Holiday name"
+                className="w-full border-2 border-steel-200 px-3 py-1.5 text-sm focus:outline-none focus:border-clinic-500"
+              />
+            </div>
+            <button
+              onClick={handleAddHoliday}
+              disabled={addingHoliday || !newHolidayDate || !newHolidayName}
+              className="px-4 py-1.5 text-sm font-semibold text-white bg-clinic-500 hover:bg-clinic-600 transition-colors shadow-sharp disabled:opacity-50"
+            >
+              {addingHoliday ? 'Adding...' : 'Add Holiday'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

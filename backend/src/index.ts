@@ -6,6 +6,8 @@ import { createWorkerRepo } from './repositories/workerRepo.js';
 import { createAvailabilityRepo } from './repositories/availabilityRepo.js';
 import { createScheduleRepo } from './repositories/scheduleRepo.js';
 import { createConfigRepo } from './repositories/configRepo.js';
+import { createHolidayRepo } from './repositories/holidayRepo.js';
+import { createSettingsRepo } from './repositories/settingsRepo.js';
 import { createWorkersRouter } from './routes/workers.js';
 import { createAvailabilityRouter } from './routes/availability.js';
 import { createSchedulesRouter } from './routes/schedules.js';
@@ -27,12 +29,14 @@ const workerRepo = createWorkerRepo(db);
 const availabilityRepo = createAvailabilityRepo(db);
 const scheduleRepo = createScheduleRepo(db);
 const configRepo = createConfigRepo(db);
+const holidayRepo = createHolidayRepo(db);
+const settingsRepo = createSettingsRepo(db);
 
 // Routes
 app.use('/api/workers', createWorkersRouter(workerRepo));
 app.use('/api/availability', createAvailabilityRouter(availabilityRepo));
-app.use('/api/schedules', createSchedulesRouter(workerRepo, availabilityRepo, scheduleRepo, configRepo));
-app.use('/api/config', createConfigRouter(configRepo));
+app.use('/api/schedules', createSchedulesRouter(workerRepo, availabilityRepo, scheduleRepo, configRepo, holidayRepo, settingsRepo));
+app.use('/api/config', createConfigRouter(configRepo, holidayRepo, settingsRepo));
 
 // Health check
 app.get('/api/health', (_req, res) => {

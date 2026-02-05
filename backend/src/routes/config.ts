@@ -1,8 +1,19 @@
 import { Router, Request, Response } from 'express';
 import { ShiftConfiguration } from '../types/index.js';
 import { ConfigRepo } from '../repositories/configRepo.js';
+import { HolidayRepo } from '../repositories/holidayRepo.js';
+import { SettingsRepo } from '../repositories/settingsRepo.js';
+import {
+  getSupportedCountries,
+  getSupportedStates,
+  populateHolidays
+} from '../services/holidayService.js';
 
-export function createConfigRouter(configRepo: ConfigRepo) {
+export function createConfigRouter(
+  configRepo: ConfigRepo,
+  holidayRepo: HolidayRepo,
+  settingsRepo: SettingsRepo
+) {
   const router = Router();
 
   // GET active configuration
@@ -17,6 +28,72 @@ export function createConfigRouter(configRepo: ConfigRepo) {
   // GET all configurations
   router.get('/all', (_req: Request, res: Response) => {
     res.json(configRepo.getAll());
+  });
+
+  // GET supported countries
+  router.get('/countries', (_req: Request, res: Response) => {
+    res.json(getSupportedCountries());
+  });
+
+  // GET states/regions for a country
+  router.get('/countries/:code/states', (req: Request, res: Response) => {
+    const states = getSupportedStates(req.params.code);
+    res.json(states || []);
+  });
+
+  // GET all settings
+  router.get('/settings', (_req: Request, res: Response) => {
+    res.json(settingsRepo.getAll());
+  });
+
+  // PUT update settings (country, region)
+  router.put('/settings', (req: Request, res: Response) => {
+    const { country, region } = req.body;
+
+    if (country) {
+      const oldCountry = settingsRepo.get('country');
+      const oldRegion = settingsRepo.get('region') || '';
+      const newRegion = region || '';
+
+      settingsRepo.set('country', country);
+      settingsRepo.set('region', newRegion);
+
+      // Re-populate holidays if country or region changed
+      if (country !== oldCountry || newRegion !== oldRegion) {
+        const currentYear = new Date().getFullYear();
+        populateHolidays(country, newRegion || undefined, [currentYear, currentYear + 1], holidayRepo);
+      }
+    }
+
+    res.json(settingsRepo.getAll());
+  });
+
+  // GET holidays for a year
+  router.get('/holidays/:year', (req: Request, res: Response) => {
+    const year = parseInt(req.params.year);
+    const country = settingsRepo.get('country') || 'FI';
+    res.json(holidayRepo.getByYear(year, country));
+  });
+
+  // POST add custom holiday
+  router.post('/holidays', (req: Request, res: Response) => {
+    const { date, name } = req.body;
+    if (!date || !name) {
+      return res.status(400).json({ error: 'Date and name are required' });
+    }
+    const country = settingsRepo.get('country') || 'FI';
+    const holiday = holidayRepo.add(date, name, 'custom', country);
+    res.status(201).json(holiday);
+  });
+
+  // DELETE a holiday
+  router.delete('/holidays/:date', (req: Request, res: Response) => {
+    const country = settingsRepo.get('country') || 'FI';
+    const removed = holidayRepo.remove(req.params.date, country);
+    if (!removed) {
+      return res.status(404).json({ error: 'Holiday not found' });
+    }
+    res.status(204).send();
   });
 
   // PUT update configuration

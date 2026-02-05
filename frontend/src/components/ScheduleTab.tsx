@@ -1,10 +1,9 @@
-import { useState, useMemo } from 'react';
-import { Worker, MonthlySchedule, ShiftAssignment, ShiftType, LinePosition } from '../types';
+import { useState, useMemo, useEffect } from 'react';
+import { Worker, MonthlySchedule, ShiftAssignment, ShiftType, LinePosition, Holiday, ShiftConfiguration } from '../types';
 import { useApi } from '../hooks/useApi';
 import {
   MONTH_NAMES,
   DAY_NAMES_FULL,
-  SHIFT_LABELS,
   POSITION_LABELS,
   SHIFT_COLORS,
   POSITION_COLORS,
@@ -21,12 +20,43 @@ interface Props {
 
 type ViewMode = 'calendar' | 'list' | 'distribution';
 
+// Timezone-safe YYYY-MM-DD formatter (avoids toISOString UTC shift)
+function toDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export default function ScheduleTab({ workers, schedule, year, month, onScheduleChange }: Props) {
   const [generating, setGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [editingAssignment, setEditingAssignment] = useState<ShiftAssignment | null>(null);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [configuration, setConfiguration] = useState<ShiftConfiguration | null>(null);
 
   const api = useApi();
+
+  useEffect(() => {
+    api.getHolidays(year).then(setHolidays).catch(() => setHolidays([]));
+  }, [year]);
+
+  useEffect(() => {
+    api.getConfiguration().then(setConfiguration).catch(() => {});
+  }, []);
+
+  // Build dynamic shift labels from configuration
+  const shiftLabels = useMemo(() => {
+    const fallback: Record<string, string> = { day: 'Day', evening: 'Evening', night: 'Night' };
+    if (!configuration) return fallback;
+    const labels: Record<string, string> = {};
+    for (const st of configuration.shiftTypes) {
+      const start = st.startTime.replace(/^0/, '');
+      const end = st.endTime.replace(/^0/, '');
+      labels[st.id] = `${st.name} (${start}-${end})`;
+    }
+    return labels;
+  }, [configuration]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -102,7 +132,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
           <div className="px-6 py-4 border-b border-steel-200">
             <h3 className="font-bold text-steel-900">Change Assignment</h3>
             <p className="text-sm text-steel-500 font-mono">
-              {formatDate(assignment.date)} / {SHIFT_LABELS[assignment.shiftType]} / {POSITION_LABELS[assignment.position]}
+              {formatDate(assignment.date)} / {shiftLabels[assignment.shiftType]} / {POSITION_LABELS[assignment.position]}
             </p>
           </div>
           <div className="flex-1 overflow-auto p-4">
@@ -136,29 +166,38 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     );
   };
 
+  const getHolidayForDate = (dateStr: string): Holiday | undefined => {
+    return holidays.find(h => h.date === dateStr);
+  };
+
   const DayCard = ({ date }: { date: Date }) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = toDateStr(date);
     const dayOfWeek = date.getDay();
     const assignments = assignmentsByDate.get(dateStr) || [];
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const holiday = getHolidayForDate(dateStr);
 
     const shiftOrder: ShiftType[] = ['day', 'evening', 'night'];
     const positionOrder: LinePosition[] = ['supervisor', 'first_line', 'second_line', 'third_line'];
 
     return (
-      <div className={`card-sharp p-3 ${isWeekend ? 'bg-amber-50/50' : ''}`}>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <div className="text-xs font-semibold text-steel-500 uppercase">
-              {DAY_NAMES_FULL[dayOfWeek]}
-            </div>
-            <div className="text-lg font-bold font-mono text-steel-900">
-              {date.getDate()}
-            </div>
+      <div className={`card-sharp p-3 ${holiday ? 'bg-rose-50/60 border-rose-200' : isWeekend ? 'bg-amber-50/50' : ''}`}>
+        <div className="mb-3">
+          <div className="text-xs font-semibold text-steel-500 uppercase">
+            {DAY_NAMES_FULL[dayOfWeek]}
           </div>
-          {isWeekend && (
-            <span className="badge bg-amber-100 border-amber-300 text-amber-700">Weekend</span>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-bold font-mono text-steel-900 shrink-0">
+              {date.getDate()}
+            </span>
+            {holiday ? (
+              <span className="text-[10px] font-semibold text-rose-700 bg-rose-100 border border-rose-300 px-1.5 py-0.5 truncate max-w-full" title={holiday.name}>
+                {holiday.name}
+              </span>
+            ) : isWeekend ? (
+              <span className="badge bg-amber-100 border-amber-300 text-amber-700">Weekend</span>
+            ) : null}
+          </div>
         </div>
 
         {assignments.length === 0 ? (
@@ -175,7 +214,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
               return (
                 <div key={shift} className={`p-2 border ${SHIFT_COLORS[shift]}`}>
                   <div className="text-xs font-semibold uppercase mb-1">
-                    {SHIFT_LABELS[shift]}
+                    {shiftLabels[shift]}
                   </div>
                   <div className="space-y-1">
                     {shiftAssignments.map(a => {
@@ -275,9 +314,10 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     if (!schedule) return null;
 
     const formatDateShort = (dateStr: string) => {
-      const d = new Date(dateStr);
-      const day = d.getDate();
-      const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      const day = date.getDate();
+      const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
       return `${weekday} ${day}`;
     };
 
@@ -290,18 +330,29 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
       return worker.type === 'external' ? `${lastName}*` : lastName;
     };
 
-    // Get assignment for a specific date, shift, and position
-    const getAssignment = (dateStr: string, shiftType: ShiftType, position: LinePosition) => {
+    // Get the main (non-night) assignment for a position on a date
+    const getMainAssignment = (dateStr: string, position: LinePosition) => {
       return schedule.assignments.find(
-        a => a.date === dateStr && a.shiftType === shiftType && a.position === position
+        a => a.date === dateStr && a.shiftType !== 'night' && a.position === position
+      );
+    };
+
+    // Get night assignment for a position on a date
+    const getNightAssignment = (dateStr: string, position: LinePosition) => {
+      return schedule.assignments.find(
+        a => a.date === dateStr && a.shiftType === 'night' && a.position === position
       );
     };
 
     // Determine if a day is weekend
     const isWeekend = (dateStr: string) => {
-      const d = new Date(dateStr);
-      return d.getDay() === 0 || d.getDay() === 6;
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dow = new Date(y, m - 1, d).getDay();
+      return dow === 0 || dow === 6;
     };
+
+    const isHolidayDate = (dateStr: string) => holidays.some(h => h.date === dateStr);
+    const getHolidayName = (dateStr: string) => holidays.find(h => h.date === dateStr)?.name;
 
     return (
       <div>
@@ -335,21 +386,26 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
             </thead>
             <tbody>
               {datesInMonth.map(date => {
-                const dateStr = date.toISOString().split('T')[0];
+                const dateStr = toDateStr(date);
                 const weekend = isWeekend(dateStr);
-                const shiftType: ShiftType = weekend ? 'day' : 'evening';
+                const holidayOnDate = isHolidayDate(dateStr);
 
-                // Get assignments for this day
-                const supervisor = getAssignment(dateStr, shiftType, 'supervisor');
-                const firstLine = getAssignment(dateStr, shiftType, 'first_line');
-                const secondLine = getAssignment(dateStr, shiftType, 'second_line');
-                const thirdLine = getAssignment(dateStr, shiftType, 'third_line');
-                const nightFirstLine = getAssignment(dateStr, 'night', 'first_line');
+                // Get assignments for this day (data-driven, not guessing shift type)
+                const supervisor = getMainAssignment(dateStr, 'supervisor');
+                const firstLine = getMainAssignment(dateStr, 'first_line');
+                const secondLine = getMainAssignment(dateStr, 'second_line');
+                const thirdLine = getMainAssignment(dateStr, 'third_line');
+                const nightFirstLine = getNightAssignment(dateStr, 'first_line');
+
+                const holidayName = getHolidayName(dateStr);
 
                 return (
-                  <tr key={dateStr} className={`border-b border-steel-100 ${weekend ? 'bg-amber-50/30' : ''}`}>
+                  <tr key={dateStr} className={`border-b border-steel-100 ${holidayOnDate ? 'bg-rose-50/40' : weekend ? 'bg-amber-50/30' : ''}`}>
                     <td className="px-2 py-1.5 font-mono font-medium text-steel-700 whitespace-nowrap">
                       {formatDateShort(dateStr)}
+                      {holidayOnDate && (
+                        <span className="ml-1 text-[10px] text-rose-600 font-semibold" title={holidayName}>H</span>
+                      )}
                     </td>
                     <td className="px-2 py-1.5 text-center border-l border-steel-100">
                       {supervisor ? getWorkerName(supervisor.workerId) : '-'}
@@ -452,15 +508,15 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
         <>
           <StatsPanel />
           <div className="grid grid-cols-7 gap-3">
-            {/* Day headers */}
-            {DAY_NAMES_FULL.map(day => (
+            {/* Day headers (Monday-first) */}
+            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
               <div key={day} className="text-center text-xs font-semibold text-steel-500 uppercase py-2">
                 {day}
               </div>
             ))}
 
-            {/* Empty cells for offset */}
-            {Array.from({ length: datesInMonth[0].getDay() }).map((_, i) => (
+            {/* Empty cells for offset (Monday=0) */}
+            {Array.from({ length: (datesInMonth[0].getDay() + 6) % 7 }).map((_, i) => (
               <div key={`empty-${i}`} />
             ))}
 

@@ -4,12 +4,16 @@ import { WorkerRepo } from '../repositories/workerRepo.js';
 import { AvailabilityRepo } from '../repositories/availabilityRepo.js';
 import { ScheduleRepo } from '../repositories/scheduleRepo.js';
 import { ConfigRepo } from '../repositories/configRepo.js';
+import { HolidayRepo } from '../repositories/holidayRepo.js';
+import { SettingsRepo } from '../repositories/settingsRepo.js';
 
 export function createSchedulesRouter(
   workerRepo: WorkerRepo,
   availabilityRepo: AvailabilityRepo,
   scheduleRepo: ScheduleRepo,
-  configRepo: ConfigRepo
+  configRepo: ConfigRepo,
+  holidayRepo: HolidayRepo,
+  settingsRepo: SettingsRepo
 ) {
   const router = Router();
 
@@ -44,13 +48,20 @@ export function createSchedulesRouter(
     const existingSchedules = scheduleRepo.getAll();
     const configuration = configRepo.getActive();
 
+    // Fetch holidays for the target month
+    const country = settingsRepo.get('country') || 'FI';
+    const firstDay = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDay = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
+    const holidays = holidayRepo.getByDateRange(firstDay, lastDay, country);
+
     const newSchedule = generateMonthlySchedule(
       year,
       month,
       workers,
       availability,
       existingSchedules,
-      configuration
+      configuration,
+      holidays
     );
 
     scheduleRepo.save(newSchedule);

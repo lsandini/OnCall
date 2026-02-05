@@ -48,6 +48,13 @@ export interface CalendarWeek {
   endDate: string;
 }
 
+export interface Holiday {
+  date: string;
+  name: string;
+  type: 'public' | 'custom';
+  country: string;
+}
+
 // Configurable shift structure types
 export interface ShiftTypeDefinition {
   id: string;              // e.g., 'evening', 'night', 'day'

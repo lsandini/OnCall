@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Worker, WeeklyAvailability, MonthlySchedule, CalendarWeek, ShiftConfiguration } from '../types';
+import { Worker, WeeklyAvailability, MonthlySchedule, CalendarWeek, ShiftConfiguration, Holiday } from '../types';
 
 const API_BASE = '/api';
 
@@ -86,6 +86,35 @@ export function useApi() {
   const activateConfiguration = useCallback((id: string) =>
     fetchJson<ShiftConfiguration>(`/config/${id}/activate`, { method: 'PUT' }), [fetchJson]);
 
+  // Countries & Settings
+  const getCountries = useCallback(() =>
+    fetchJson<{ code: string; name: string }[]>('/config/countries'), [fetchJson]);
+
+  const getStates = useCallback((countryCode: string) =>
+    fetchJson<{ code: string; name: string }[]>(`/config/countries/${countryCode}/states`), [fetchJson]);
+
+  const getSettings = useCallback(() =>
+    fetchJson<Record<string, string>>('/config/settings'), [fetchJson]);
+
+  const updateSettings = useCallback((settings: { country: string; region?: string }) =>
+    fetchJson<Record<string, string>>('/config/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings)
+    }), [fetchJson]);
+
+  // Holidays
+  const getHolidays = useCallback((year: number) =>
+    fetchJson<Holiday[]>(`/config/holidays/${year}`), [fetchJson]);
+
+  const addHoliday = useCallback((date: string, name: string) =>
+    fetchJson<Holiday>('/config/holidays', {
+      method: 'POST',
+      body: JSON.stringify({ date, name })
+    }), [fetchJson]);
+
+  const removeHoliday = useCallback((date: string) =>
+    fetchJson(`/config/holidays/${date}`, { method: 'DELETE' }), [fetchJson]);
+
   return {
     loading,
     error,
@@ -105,6 +134,13 @@ export function useApi() {
     getConfiguration,
     getAllConfigurations,
     updateConfiguration,
-    activateConfiguration
+    activateConfiguration,
+    getCountries,
+    getStates,
+    getSettings,
+    updateSettings,
+    getHolidays,
+    addHoliday,
+    removeHoliday
   };
 }

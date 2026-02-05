@@ -2,12 +2,15 @@
 
 ## Project Description
 
-A full-stack semi-automated shift scheduling system for hospital clinics. The system assigns workers to shifts based on their roles, availability preferences, employment dates, and balances workload fairly. All data is persisted in a local SQLite database.
+A full-stack semi-automated shift scheduling system for hospital clinics. The system assigns workers to shifts based on their roles, availability preferences, employment dates, and public holidays, balancing workload fairly. All data is persisted in a local SQLite database.
 
 **Key features**:
 - **Configurable shift structure** per clinic (one-time setup)
 - **Employment duration tracking** - workers have start/end dates
 - **Monthly calendar availability** - intuitive day-by-day availability setting
+- **Public holidays** - country-aware holiday support (100+ countries, offline via `date-holidays` package)
+- **Custom holidays** - admins can add/remove holidays alongside auto-populated ones
+- **Holiday-aware scheduling** - public holidays treated as Sundays for staffing purposes
 - **Distribution lists** - printable monthly schedule tables
 - **Personnel filtered by month** - only show workers employed in selected month
 - **Persistent storage** - SQLite database survives server restarts
@@ -42,7 +45,7 @@ Workers only appear in the personnel list for months where their employment over
 Administrators configure the clinic's shift structure via a Configuration tab. This defines:
 
 1. **Shift Types**: Define shift names and time ranges
-   - Day: 09:00-22:00 (weekends)
+   - Day: 09:00-22:00 (weekends and holidays)
    - Evening: 15:00-22:00 (weekdays)
    - Night: 22:00-08:00 (crosses midnight)
 
@@ -65,9 +68,21 @@ Administrators configure the clinic's shift structure via a Configuration tab. T
   - Mondays and Fridays: Add 3rd Line
 - Night Shift (22:00-08:00): 1st Line only (Supervisor continues)
 
-**Weekends (Saturday-Sunday):**
+**Weekends & Public Holidays (Saturday-Sunday + holidays):**
 - Day Shift (09:00-22:00): Supervisor + 1st Line + 2nd Line
 - Night Shift: 1st Line only (Supervisor continues)
+
+Public holidays falling on weekdays are treated as Sundays - the scheduler uses Sunday's daily position requirements (from the configuration) for those days.
+
+## Region & Holidays
+
+- **Country selection**: Admin selects the organization's country from 100+ supported countries (data from `date-holidays` npm package, ISC license, CC BY-SA 3.0 data)
+- **State/region**: Optional sub-region for countries with regional holidays
+- **Auto-population**: Changing the country fetches public holidays for the current and next year, replacing previous public holidays in the database (custom holidays are preserved)
+- **Holiday types**: `public` (auto-populated from date-holidays, filtered to `type === 'public'` only) and `custom` (manually added by admin)
+- **Holiday storage**: Persisted in a `holidays` table keyed by (date, country)
+- **Default**: Finland (FI), seeded on first run
+- **Scheduling impact**: Any date matching a holiday uses `dayOfWeek = 0` (Sunday) for shift requirement lookup, so holidays get weekend-style staffing regardless of actual weekday
 
 ## Availability System
 
@@ -90,6 +105,7 @@ Administrators configure the clinic's shift structure via a Configuration tab. T
 6. Permanent staff slightly preferred over external
 7. External workers with double-shift capability can be assigned evening + night on same day
 8. Regular workers should not work multiple shifts on the same day
+9. Public holidays treated as Sundays - use Sunday's position requirements from the active configuration
 
 ## Initial Data
 
@@ -100,12 +116,15 @@ Pre-populate the system with (seeded on first run when database is empty):
 - 10 Students (permanent, mix of years 4, 5, 6)
 - 3 External Students (can double-shift)
 - Default Internal Medicine shift configuration
+- Default country setting: Finland (FI)
+- Finnish public holidays for current year and next year
 
 ## Tech Stack
 
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
 - **Backend**: Node.js + Express + TypeScript
 - **Database**: SQLite via `better-sqlite3` (WAL mode, foreign keys enabled)
+- **Holidays**: `date-holidays` npm package (offline, no API key, 100+ countries)
 - **API**: REST JSON
 - **Package Manager**: npm only
 - **Runtime**: Node.js 18+
@@ -116,7 +135,7 @@ Pre-populate the system with (seeded on first run when database is empty):
 - Tabbed interface with three main sections:
   1. **Personnel Management Tab**: List workers, set availability, manage employment dates
   2. **Monthly Schedule Tab**: View/generate schedule, distribution lists
-  3. **Configuration Tab**: One-time setup of shift structure
+  3. **Configuration Tab**: Shift structure setup + region & holidays management
 
 ### Header
 - Month/year selector dropdowns (affects personnel filtering and schedule view)
@@ -155,11 +174,13 @@ Pre-populate the system with (seeded on first run when database is empty):
 **Three view modes** (toggle buttons):
 
 1. **Calendar View**:
-   - Grid showing all days of the month
+   - Monday-first weekly grid showing all days of the month
    - Each day shows shifts with assigned workers by position
+   - Shift labels and times read dynamically from the active configuration
    - Color-coded by shift type
    - Click any assignment to swap to different eligible worker
-   - Weekend days highlighted
+   - Weekend days highlighted in amber
+   - Holiday dates highlighted in rose/red with holiday name badge (truncated, full name on hover)
 
 2. **Stats View**:
    - Table showing workload distribution
@@ -171,15 +192,23 @@ Pre-populate the system with (seeded on first run when database is empty):
    - Columns: Date, Supervisor, 1st Line, 2nd Line, 3rd Line, Night
    - Shows last names only for compactness
    - External staff marked with asterisk (*)
-   - Weekend rows highlighted
+   - Weekend rows highlighted in amber
+   - Holiday rows highlighted in rose with "H" indicator
    - Print button for distribution
 
-**Generate/Regenerate button** creates schedule using configuration and respecting availability.
+**Generate/Regenerate button** creates schedule using configuration, holidays, and respecting availability.
 
 ### Configuration Tab
 
-- Display current configuration name and description
-- Edit button to enter edit mode
+**Region & Holidays Section** (top of tab):
+- Country dropdown populated from `date-holidays` (100+ countries)
+- Optional state/region dropdown (shown only if country has states)
+- Save Country button (disabled when unchanged) - triggers re-population of public holidays
+- Holiday list for selected year with:
+  - Date (mono font), name, type badge (public=sky, custom=violet)
+  - Delete button (x) on hover for each row
+  - Year navigation arrows
+- Add Custom Holiday form: date picker + name input + Add button
 
 **Shift Types Section:**
 - Cards for each shift type (Day, Evening, Night)
@@ -199,36 +228,47 @@ Pre-populate the system with (seeded on first run when database is empty):
 
 ```
 # Configuration
-GET    /api/config                     - Get active shift configuration
-GET    /api/config/all                 - Get all configurations
-PUT    /api/config/:id                 - Update configuration
-PUT    /api/config/:id/activate        - Set configuration as active
+GET    /api/config                          - Get active shift configuration
+GET    /api/config/all                      - Get all configurations
+PUT    /api/config/:id                      - Update configuration
+PUT    /api/config/:id/activate             - Set configuration as active
+
+# Countries & Settings
+GET    /api/config/countries                - List supported countries (from date-holidays)
+GET    /api/config/countries/:code/states   - List states/regions for a country
+GET    /api/config/settings                 - Get all settings (country, region)
+PUT    /api/config/settings                 - Update settings; triggers holiday re-population
+
+# Holidays
+GET    /api/config/holidays/:year           - Get holidays for a year
+POST   /api/config/holidays                 - Add custom holiday {date, name}
+DELETE /api/config/holidays/:date           - Remove a holiday
 
 # Workers
-GET    /api/workers                    - List all workers
-GET    /api/workers/:id                - Get single worker
-POST   /api/workers                    - Create worker
-PUT    /api/workers/:id                - Update worker
-DELETE /api/workers/:id                - Soft delete (deactivate)
+GET    /api/workers                         - List all workers
+GET    /api/workers/:id                     - Get single worker
+POST   /api/workers                         - Create worker
+PUT    /api/workers/:id                     - Update worker
+DELETE /api/workers/:id                     - Soft delete (deactivate)
 
 # Availability
-GET    /api/availability               - List all availability entries
-GET    /api/availability/worker/:id    - Get worker's availability
-GET    /api/availability/week/:year/:week - Get availability for a week
-POST   /api/availability               - Set single availability entry
-POST   /api/availability/batch         - Batch update availability
-DELETE /api/availability               - Delete availability entry
+GET    /api/availability                    - List all availability entries
+GET    /api/availability/worker/:id         - Get worker's availability
+GET    /api/availability/week/:year/:week   - Get availability for a week
+POST   /api/availability                    - Set single availability entry
+POST   /api/availability/batch              - Batch update availability
+DELETE /api/availability                    - Delete availability entry
 
 # Schedules
-GET    /api/schedules                  - List all generated schedules
-GET    /api/schedules/:year/:month     - Get specific month's schedule
-POST   /api/schedules/generate         - Generate schedule for month
+GET    /api/schedules                       - List all generated schedules
+GET    /api/schedules/:year/:month          - Get specific month's schedule
+POST   /api/schedules/generate              - Generate schedule for month
 PUT    /api/schedules/:year/:month/assignment/:id - Update single assignment
-DELETE /api/schedules/:year/:month     - Delete month's schedule
+DELETE /api/schedules/:year/:month          - Delete month's schedule
 
 # Utilities
-GET    /api/calendar/weeks/:year       - Get week date ranges for year
-GET    /api/health                     - Health check
+GET    /api/calendar/weeks/:year            - Get week date ranges for year
+GET    /api/health                          - Health check
 ```
 
 ## Database Schema
@@ -243,12 +283,15 @@ shift_assignments (id, schedule_year, schedule_month, date, shift_type, position
 shift_configurations (id, name, description, created_at, updated_at, is_active)
 shift_type_definitions (config_id, id, name, start_time, end_time, crosses_midnight)
 daily_shift_requirements (id AUTOINCREMENT, config_id, day_of_week, shift_type_id, positions)
+settings (key, value)                                                             -- key-value pairs
+holidays (date, name, type, country)                                              -- composite PK: date+country
 ```
 
 - Foreign keys with `ON DELETE CASCADE` on all child tables
-- `INSERT OR REPLACE` for availability upserts (leverages composite PK)
+- `INSERT OR REPLACE` for availability and settings upserts (leverages composite PK)
 - Booleans stored as INTEGER 0/1 (SQLite convention)
 - WAL journal mode for concurrent read performance
+- Holiday types: `'public'` (from date-holidays) or `'custom'` (manually added)
 
 ## Data Models
 
@@ -284,6 +327,14 @@ interface ShiftConfiguration {
   createdAt: string;
   updatedAt: string;
   isActive: boolean;
+}
+
+// === Holiday ===
+interface Holiday {
+  date: string;            // YYYY-MM-DD
+  name: string;
+  type: 'public' | 'custom';
+  country: string;
 }
 
 // === Worker ===
@@ -340,6 +391,8 @@ Create a distinctive, professional aesthetic:
 - Uppercase labels with letter-spacing for section headers
 - Compact, information-dense layouts
 - Print-friendly distribution lists
+- Monday-first calendar grid (European/ISO convention)
+- Holiday highlighting: rose/red tint with holiday name badge
 
 ## File Structure
 
@@ -351,22 +404,25 @@ Create a distinctive, professional aesthetic:
     /data
       initialData.ts         - Default workers and configuration (used for seeding)
     /db
-      connection.ts          - Open DB, create tables, WAL mode, foreign keys
-      seed.ts                - Seed if workers table is empty
+      connection.ts          - Open DB, create 9 tables, WAL mode, foreign keys
+      seed.ts                - Seed if empty: workers, config, settings (country=FI), holidays
     /repositories
       workerRepo.ts          - Worker CRUD (getAll, getById, create, update, softDelete)
       availabilityRepo.ts    - Availability CRUD (getAll, getByWorker, getByWeek, upsert, batchUpsert, remove)
       scheduleRepo.ts        - Schedule CRUD (getAll, getByMonth, save, updateAssignment, deleteByMonth)
       configRepo.ts          - Config CRUD (getAll, getActive, create, update, activate)
+      holidayRepo.ts         - Holiday CRUD (getByYear, getByDateRange, isHoliday, add, remove, replacePublicHolidays)
+      settingsRepo.ts        - Settings CRUD (get, set, getAll)
     /routes
       workers.ts             - Worker CRUD endpoints
       availability.ts        - Availability endpoints
-      schedules.ts           - Schedule generation and management
-      config.ts              - Configuration endpoints
+      schedules.ts           - Schedule generation (holiday-aware) and management
+      config.ts              - Configuration, countries, settings, and holiday endpoints
     /services
-      scheduler.ts           - Schedule generation algorithm (pure function, no DB coupling)
+      scheduler.ts           - Schedule generation algorithm (pure function, holiday-aware)
+      holidayService.ts      - Wraps date-holidays: getSupportedCountries, getSupportedStates, fetchHolidays, populateHolidays
     /types
-      index.ts               - All TypeScript interfaces
+      index.ts               - All TypeScript interfaces (including Holiday)
     index.ts                 - Express app setup, DB init, repo wiring
 
 /frontend
@@ -375,12 +431,12 @@ Create a distinctive, professional aesthetic:
       WorkersTab.tsx         - Personnel list view
       WorkerForm.tsx         - Add/edit worker modal
       AvailabilityEditor.tsx - Monthly calendar modal
-      ScheduleTab.tsx        - Calendar, stats, and lists views
-      ConfigurationTab.tsx   - Shift configuration editor
+      ScheduleTab.tsx        - Calendar (Monday-first), stats, and lists views with holiday highlighting
+      ConfigurationTab.tsx   - Shift configuration editor + region & holidays management
     /hooks
-      useApi.ts              - API client hooks
+      useApi.ts              - API client hooks (workers, availability, schedules, config, countries, settings, holidays)
     /types
-      index.ts               - TypeScript interfaces
+      index.ts               - TypeScript interfaces (including Holiday)
     /utils
       helpers.ts             - Constants and formatting
     App.tsx                  - Main app with tabs

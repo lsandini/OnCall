@@ -97,6 +97,13 @@ export interface ShiftRequirement {
 //   Sunday:   09:00 to 08:00 Monday
 // =============================================================================
 
+export interface Holiday {
+  date: string;      // YYYY-MM-DD
+  name: string;
+  type: 'public' | 'custom';
+  country: string;
+}
+
 export const SHIFT_REQUIREMENTS: ShiftRequirement[] = [
   // Monday (1) - Evening needs all lines including 3rd; supervisor covers evening+night
   { dayOfWeek: 1, shiftType: 'evening', positions: ['supervisor', 'first_line', 'second_line', 'third_line'] },
