@@ -1,7 +1,11 @@
 import express from 'express';
 import cors from 'cors';
-import { Worker, WeeklyAvailability, MonthlySchedule, ShiftConfiguration } from './types/index.js';
-import { createInitialWorkers, createInitialAvailability, createDefaultShiftConfiguration } from './data/initialData.js';
+import { openDatabase } from './db/connection.js';
+import { seedIfEmpty } from './db/seed.js';
+import { createWorkerRepo } from './repositories/workerRepo.js';
+import { createAvailabilityRepo } from './repositories/availabilityRepo.js';
+import { createScheduleRepo } from './repositories/scheduleRepo.js';
+import { createConfigRepo } from './repositories/configRepo.js';
 import { createWorkersRouter } from './routes/workers.js';
 import { createAvailabilityRouter } from './routes/availability.js';
 import { createSchedulesRouter } from './routes/schedules.js';
@@ -14,32 +18,25 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// In-memory data store
-let workers: Worker[] = createInitialWorkers();
-let availability: WeeklyAvailability[] = createInitialAvailability();
-let schedules: MonthlySchedule[] = [];
-let configurations: ShiftConfiguration[] = [createDefaultShiftConfiguration()];
+// Database
+const db = openDatabase();
+seedIfEmpty(db);
 
-// Data accessors
-const getWorkers = () => workers;
-const setWorkers = (w: Worker[]) => { workers = w; };
-const getAvailability = () => availability;
-const setAvailability = (a: WeeklyAvailability[]) => { availability = a; };
-const getSchedules = () => schedules;
-const setSchedules = (s: MonthlySchedule[]) => { schedules = s; };
-const getConfigurations = () => configurations;
-const setConfigurations = (c: ShiftConfiguration[]) => { configurations = c; };
-const getActiveConfiguration = () => configurations.find(c => c.isActive);
+// Repositories
+const workerRepo = createWorkerRepo(db);
+const availabilityRepo = createAvailabilityRepo(db);
+const scheduleRepo = createScheduleRepo(db);
+const configRepo = createConfigRepo(db);
 
 // Routes
-app.use('/api/workers', createWorkersRouter(getWorkers, setWorkers));
-app.use('/api/availability', createAvailabilityRouter(getAvailability, setAvailability));
-app.use('/api/schedules', createSchedulesRouter(getWorkers, getAvailability, getSchedules, setSchedules, getActiveConfiguration));
-app.use('/api/config', createConfigRouter(getConfigurations, setConfigurations));
+app.use('/api/workers', createWorkersRouter(workerRepo));
+app.use('/api/availability', createAvailabilityRouter(availabilityRepo));
+app.use('/api/schedules', createSchedulesRouter(workerRepo, availabilityRepo, scheduleRepo, configRepo));
+app.use('/api/config', createConfigRouter(configRepo));
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', workers: workers.length, schedules: schedules.length });
+  res.json({ status: 'ok', workers: workerRepo.count(), schedules: scheduleRepo.getAll().length });
 });
 
 // Calendar helper - get weeks in a year
@@ -72,8 +69,18 @@ app.get('/api/calendar/weeks/:year', (req, res) => {
   res.json(weeks);
 });
 
+// Graceful shutdown
+process.on('SIGINT', () => {
+  db.close();
+  process.exit(0);
+});
+process.on('SIGTERM', () => {
+  db.close();
+  process.exit(0);
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`OnCall API running on port ${PORT}`);
-  console.log(`Loaded ${workers.length} workers`);
+  console.log(`Loaded ${workerRepo.count()} workers`);
 });

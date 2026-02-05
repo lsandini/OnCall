@@ -10,11 +10,11 @@ export function createInitialWorkers(): Worker[] {
 
   // 15 Senior Specialists
   const seniorNames = [
-    'Dr. Elena Marchetti', 'Dr. Marco Rossi', 'Dr. Lucia Bianchi',
-    'Dr. Andrea Conti', 'Dr. Francesca Romano', 'Dr. Giovanni Ricci',
-    'Dr. Chiara Moretti', 'Dr. Stefano Colombo', 'Dr. Maria Ferraro',
-    'Dr. Alessandro Bruno', 'Dr. Valentina Costa', 'Dr. Roberto Greco',
-    'Dr. Silvia Mancini', 'Dr. Paolo Lombardi', 'Dr. Giulia Fontana'
+    'Dr. Sarah Mitchell', 'Dr. James Cooper', 'Dr. Emily Watson',
+    'Dr. Michael Chen', 'Dr. Rachel Foster', 'Dr. David Park',
+    'Dr. Laura Bennett', 'Dr. Steven Clark', 'Dr. Maria Santos',
+    'Dr. Andrew Walsh', 'Dr. Jennifer Cole', 'Dr. Robert Hayes',
+    'Dr. Susan Miller', 'Dr. Paul Robinson', 'Dr. Karen Fisher'
   ];
   seniorNames.forEach(name => {
     workers.push({
@@ -30,10 +30,10 @@ export function createInitialWorkers(): Worker[] {
 
   // 10 Residents (permanent)
   const residentNames = [
-    'Dr. Matteo Pellegrini', 'Dr. Sara Martinelli', 'Dr. Davide Gallo',
-    'Dr. Anna Santoro', 'Dr. Luca Fabbri', 'Dr. Emma Caruso',
-    'Dr. Federico Vitale', 'Dr. Laura Rinaldi', 'Dr. Simone Gatti',
-    'Dr. Alice Barbieri'
+    'Dr. Matt Reynolds', 'Dr. Sara Kim', 'Dr. Daniel Brooks',
+    'Dr. Anna Patel', 'Dr. Luke Harrison', 'Dr. Emma Carter',
+    'Dr. Fred Marshall', 'Dr. Lisa Torres', 'Dr. Simon Gray',
+    'Dr. Alice Murphy'
   ];
   residentNames.forEach(name => {
     workers.push({
@@ -49,16 +49,16 @@ export function createInitialWorkers(): Worker[] {
 
   // 10 Students (permanent)
   const studentNames = [
-    { name: 'Marco Esposito', year: 6 },
-    { name: 'Giulia Rizzo', year: 6 },
-    { name: 'Andrea Marino', year: 5 },
-    { name: 'Chiara De Luca', year: 5 },
-    { name: 'Francesco Ferrara', year: 5 },
-    { name: 'Martina Giordano', year: 4 },
-    { name: 'Tommaso Russo', year: 4 },
-    { name: 'Sofia Leone', year: 4 },
-    { name: 'Lorenzo Serra', year: 6 },
-    { name: 'Beatrice Mazza', year: 5 }
+    { name: 'Mark Evans', year: 6 },
+    { name: 'Julia Reed', year: 6 },
+    { name: 'Andy Shaw', year: 5 },
+    { name: 'Claire Young', year: 5 },
+    { name: 'Frank West', year: 5 },
+    { name: 'Martha Jordan', year: 4 },
+    { name: 'Tom Russell', year: 4 },
+    { name: 'Sophie Lane', year: 4 },
+    { name: 'Logan Scott', year: 6 },
+    { name: 'Beth Murray', year: 5 }
   ];
   studentNames.forEach(({ name, year }) => {
     workers.push({
@@ -76,7 +76,7 @@ export function createInitialWorkers(): Worker[] {
   // 1 External Resident
   workers.push({
     id: generateId(),
-    name: 'Dr. Pietro Valentini',
+    name: 'Dr. Pete Valentine',
     role: 'resident',
     type: 'external',
     canDoubleSift: true,
@@ -86,9 +86,9 @@ export function createInitialWorkers(): Worker[] {
 
   // 3 External Students
   const externalStudents = [
-    { name: 'Elisa Morandi', year: 6 },
-    { name: 'Nicola Parisi', year: 5 },
-    { name: 'Alessia Conti', year: 5 }
+    { name: 'Ellie Morgan', year: 6 },
+    { name: 'Nick Palmer', year: 5 },
+    { name: 'Alex Grant', year: 5 }
   ];
   externalStudents.forEach(({ name, year }) => {
     workers.push({

@@ -2,7 +2,7 @@
 
 ## Project Description
 
-Build a complete full-stack semi-automated shift scheduling system for hospital clinics. The system assigns workers to shifts based on their roles, availability preferences, employment dates, and balances workload fairly.
+A full-stack semi-automated shift scheduling system for hospital clinics. The system assigns workers to shifts based on their roles, availability preferences, employment dates, and balances workload fairly. All data is persisted in a local SQLite database.
 
 **Key features**:
 - **Configurable shift structure** per clinic (one-time setup)
@@ -10,6 +10,7 @@ Build a complete full-stack semi-automated shift scheduling system for hospital 
 - **Monthly calendar availability** - intuitive day-by-day availability setting
 - **Distribution lists** - printable monthly schedule tables
 - **Personnel filtered by month** - only show workers employed in selected month
+- **Persistent storage** - SQLite database survives server restarts
 
 ## Personnel Structure
 
@@ -92,7 +93,7 @@ Administrators configure the clinic's shift structure via a Configuration tab. T
 
 ## Initial Data
 
-Pre-populate the system with:
+Pre-populate the system with (seeded on first run when database is empty):
 - 15 Senior Specialists (permanent)
 - 10 Residents (permanent)
 - 1 External Resident (can double-shift)
@@ -100,13 +101,11 @@ Pre-populate the system with:
 - 3 External Students (can double-shift)
 - Default Internal Medicine shift configuration
 
-Use Italian names for realism. Start calendar from **January 1, 2026**.
-
 ## Tech Stack
 
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
 - **Backend**: Node.js + Express + TypeScript
-- **Data**: In-memory storage (no database)
+- **Database**: SQLite via `better-sqlite3` (WAL mode, foreign keys enabled)
 - **API**: REST JSON
 - **Package Manager**: npm only
 - **Runtime**: Node.js 18+
@@ -146,7 +145,7 @@ Use Italian names for realism. Start calendar from **January 1, 2026**.
 - Monthly calendar grid (7 columns for Mon-Sun)
 - Shows actual dates for the month
 - Navigate months with arrow buttons
-- Click day to cycle: Default → Preferred → Unavailable → Default
+- Click day to cycle: Default -> Preferred -> Unavailable -> Default
 - Color legend at top
 - Changes save automatically
 - Compact design
@@ -231,6 +230,25 @@ DELETE /api/schedules/:year/:month     - Delete month's schedule
 GET    /api/calendar/weeks/:year       - Get week date ranges for year
 GET    /api/health                     - Health check
 ```
+
+## Database Schema
+
+SQLite with fully normalized tables (no JSON columns). Portable to PostgreSQL/MySQL.
+
+```sql
+workers (id, name, role, type, can_double_shift, year_of_study, start_date, end_date, active, created_at)
+weekly_availability (worker_id, year, week, day, shift_type, status)              -- composite PK
+monthly_schedules (year, month, generated_at)                                     -- composite PK
+shift_assignments (id, schedule_year, schedule_month, date, shift_type, position, worker_id, is_double_shift)
+shift_configurations (id, name, description, created_at, updated_at, is_active)
+shift_type_definitions (config_id, id, name, start_time, end_time, crosses_midnight)
+daily_shift_requirements (id AUTOINCREMENT, config_id, day_of_week, shift_type_id, positions)
+```
+
+- Foreign keys with `ON DELETE CASCADE` on all child tables
+- `INSERT OR REPLACE` for availability upserts (leverages composite PK)
+- Booleans stored as INTEGER 0/1 (SQLite convention)
+- WAL journal mode for concurrent read performance
 
 ## Data Models
 
@@ -327,36 +345,46 @@ Create a distinctive, professional aesthetic:
 
 ```
 /backend
+  /data
+    oncall.db                - SQLite database (gitignored)
   /src
     /data
-      initialData.ts       - Default workers and configuration
+      initialData.ts         - Default workers and configuration (used for seeding)
+    /db
+      connection.ts          - Open DB, create tables, WAL mode, foreign keys
+      seed.ts                - Seed if workers table is empty
+    /repositories
+      workerRepo.ts          - Worker CRUD (getAll, getById, create, update, softDelete)
+      availabilityRepo.ts    - Availability CRUD (getAll, getByWorker, getByWeek, upsert, batchUpsert, remove)
+      scheduleRepo.ts        - Schedule CRUD (getAll, getByMonth, save, updateAssignment, deleteByMonth)
+      configRepo.ts          - Config CRUD (getAll, getActive, create, update, activate)
     /routes
-      workers.ts           - Worker CRUD endpoints
-      availability.ts      - Availability endpoints
-      schedules.ts         - Schedule generation and management
-      config.ts            - Configuration endpoints
+      workers.ts             - Worker CRUD endpoints
+      availability.ts        - Availability endpoints
+      schedules.ts           - Schedule generation and management
+      config.ts              - Configuration endpoints
     /services
-      scheduler.ts         - Schedule generation algorithm
+      scheduler.ts           - Schedule generation algorithm (pure function, no DB coupling)
     /types
-      index.ts             - All TypeScript interfaces
-    index.ts               - Express app setup
+      index.ts               - All TypeScript interfaces
+    index.ts                 - Express app setup, DB init, repo wiring
 
 /frontend
   /src
     /components
-      WorkersTab.tsx       - Personnel list view
-      WorkerForm.tsx       - Add/edit worker modal
+      WorkersTab.tsx         - Personnel list view
+      WorkerForm.tsx         - Add/edit worker modal
       AvailabilityEditor.tsx - Monthly calendar modal
-      ScheduleTab.tsx      - Calendar, stats, and lists views
-      ConfigurationTab.tsx - Shift configuration editor
+      ScheduleTab.tsx        - Calendar, stats, and lists views
+      ConfigurationTab.tsx   - Shift configuration editor
     /hooks
-      useApi.ts            - API client hooks
+      useApi.ts              - API client hooks
     /types
-      index.ts             - TypeScript interfaces
+      index.ts               - TypeScript interfaces
     /utils
-      helpers.ts           - Constants and formatting
-    App.tsx                - Main app with tabs
-    main.tsx               - React entry point
+      helpers.ts             - Constants and formatting
+    App.tsx                  - Main app with tabs
+    main.tsx                 - React entry point
 ```
 
 ## Deliverables
@@ -366,6 +394,5 @@ Create a distinctive, professional aesthetic:
 3. TypeScript throughout (strict mode)
 4. All dependencies installable via `npm install`
 5. Application runnable with `npm run dev` in both directories
-6. README.md with setup instructions
-
-Build the entire application in one pass, fully operational without additional modifications needed.
+6. Persistent SQLite storage (auto-seeds on first run, persists across restarts)
+7. README.md with setup instructions

@@ -1,6 +1,6 @@
 # OnCall - Hospital Shift Management System
 
-A semi-automated shift scheduling system for hospital clinics.
+A semi-automated shift scheduling system for hospital clinics, backed by a persistent SQLite database.
 
 ## Features
 
@@ -12,6 +12,7 @@ A semi-automated shift scheduling system for hospital clinics.
 - **Manual Override**: Click any assignment to swap workers
 - **Distribution Lists**: Printable monthly schedule table for distribution
 - **External Staff**: Support for on-demand workers with double-shift capability
+- **Persistent Storage**: SQLite database - all data survives server restarts
 
 ## Shift Structure (Default: Internal Medicine)
 
@@ -47,6 +48,41 @@ npm run dev
 
 Open http://localhost:5173
 
+On first run, the database is created at `backend/data/oncall.db` and seeded with 39 workers and the default Internal Medicine shift configuration. Subsequent restarts reuse the existing database.
+
+To reset to a clean state, delete `backend/data/oncall.db` and restart the backend.
+
+## Architecture
+
+### Backend
+
+- **Runtime**: Node.js + Express + TypeScript
+- **Database**: SQLite via `better-sqlite3` (WAL mode, foreign keys enabled)
+- **Schema**: 7 fully normalized tables (no JSON columns), portable to PostgreSQL/MySQL
+- **Repositories**: Factory functions (`createXxxRepo(db)`) encapsulate all SQL and handle snake_case/camelCase mapping
+- **Scheduler**: Pure function with no database coupling - receives pre-fetched arrays from route handlers
+- **Seeding**: Automatic on first run when the workers table is empty
+
+### Frontend
+
+- **Framework**: React 18 + TypeScript + Vite
+- **Styling**: Tailwind CSS with a clinical teal/cyan theme
+- **API Client**: Custom hooks wrapping fetch calls
+
+### Database Schema
+
+```
+workers                    - Staff members with roles and employment dates
+weekly_availability        - Per-worker shift availability (composite PK, upsert-friendly)
+monthly_schedules          - Generated schedule headers (year/month composite PK)
+shift_assignments          - Individual shift assignments (FK to schedules and workers)
+shift_configurations       - Named shift configs (one active at a time)
+shift_type_definitions     - Shift types per config (day/evening/night with times)
+daily_shift_requirements   - Required positions per day-of-week per shift type
+```
+
+All child tables use `ON DELETE CASCADE`. Booleans stored as INTEGER 0/1.
+
 ## User Guide
 
 ### Personnel Management Tab
@@ -58,7 +94,7 @@ Open http://localhost:5173
 
 ### Availability Calendar
 - Monthly calendar view (not weekly)
-- Click any day to cycle: Default → Preferred → Unavailable → Default
+- Click any day to cycle: Default -> Preferred -> Unavailable -> Default
 - Navigate months with arrow buttons
 - Changes save automatically
 
@@ -72,14 +108,6 @@ Three view modes:
 - Edit shift types (name, start/end times)
 - Toggle positions required per day of week
 - Matrix grid showing which positions are needed for each day/shift combination
-
-## Tech Stack
-
-- React 18 + TypeScript + Vite
-- Tailwind CSS (custom clinical theme)
-- Node.js + Express backend
-- In-memory data (no database)
-- REST JSON API
 
 ## API Endpoints
 
@@ -117,54 +145,48 @@ GET    /api/calendar/weeks/:year       - Get week date ranges for year
 GET    /api/health                     - Health check
 ```
 
-## Data Models
+## File Structure
 
-```typescript
-interface Worker {
-  id: string;
-  name: string;
-  role: 'senior_specialist' | 'resident' | 'student';
-  type: 'permanent' | 'external';
-  canDoubleSift: boolean;
-  yearOfStudy?: number;      // For students: 4, 5, or 6
-  startDate?: string;        // Employment start (YYYY-MM-DD)
-  endDate?: string;          // Employment end (YYYY-MM-DD)
-  active: boolean;
-  createdAt: string;
-}
-
-interface ShiftConfiguration {
-  id: string;
-  name: string;
-  description?: string;
-  shiftTypes: ShiftTypeDefinition[];
-  dailyRequirements: DailyShiftRequirement[];
-  createdAt: string;
-  updatedAt: string;
-  isActive: boolean;
-}
-
-interface ShiftTypeDefinition {
-  id: string;
-  name: string;
-  startTime: string;
-  endTime: string;
-  crossesMidnight: boolean;
-}
-
-interface DailyShiftRequirement {
-  dayOfWeek: number;         // 0=Sunday ... 6=Saturday
-  shiftTypeId: string;
-  positions: LinePosition[];
-}
 ```
+/backend
+  /data
+    oncall.db                  - SQLite database file (gitignored)
+  /src
+    /data
+      initialData.ts           - Seed data (39 workers + default config)
+    /db
+      connection.ts            - DB connection, schema creation, WAL + FK pragmas
+      seed.ts                  - Conditional seeding on empty database
+    /repositories
+      workerRepo.ts            - Worker CRUD operations
+      availabilityRepo.ts      - Availability upsert/query operations
+      scheduleRepo.ts          - Schedule save/query with transactional writes
+      configRepo.ts            - Config CRUD with child table management
+    /routes
+      workers.ts               - Worker endpoints
+      availability.ts          - Availability endpoints
+      schedules.ts             - Schedule generation and management endpoints
+      config.ts                - Configuration endpoints
+    /services
+      scheduler.ts             - Scheduling algorithm (pure function)
+    /types
+      index.ts                 - All TypeScript interfaces and types
+    index.ts                   - Express app, DB init, repository wiring, routes
 
-## 30-Second Demo
-
-1. **Open app** → Pre-loaded with 39 workers and Internal Medicine configuration
-2. **Personnel tab** → Note the list view with Start/End date columns
-3. **Click Availability** on any worker → Monthly calendar appears
-4. **Mark Jan 1 as Unavailable** (click to cycle to red)
-5. **Schedule tab** → Click "Generate Schedule"
-6. **Click "Lists"** → See printable distribution table
-7. **Configuration tab** → View/edit shift structure
+/frontend
+  /src
+    /components
+      WorkersTab.tsx           - Personnel list view
+      WorkerForm.tsx           - Add/edit worker modal
+      AvailabilityEditor.tsx   - Monthly calendar modal
+      ScheduleTab.tsx          - Calendar, stats, and lists views
+      ConfigurationTab.tsx     - Shift configuration editor
+    /hooks
+      useApi.ts                - API client hooks
+    /types
+      index.ts                 - TypeScript interfaces
+    /utils
+      helpers.ts               - Constants and formatting
+    App.tsx                    - Main app with tabs
+    main.tsx                   - React entry point
+```

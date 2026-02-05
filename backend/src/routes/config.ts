@@ -1,16 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { ShiftConfiguration } from '../types/index.js';
+import { ConfigRepo } from '../repositories/configRepo.js';
 
-export function createConfigRouter(
-  getConfigurations: () => ShiftConfiguration[],
-  setConfigurations: (configs: ShiftConfiguration[]) => void
-) {
+export function createConfigRouter(configRepo: ConfigRepo) {
   const router = Router();
 
   // GET active configuration
   router.get('/', (_req: Request, res: Response) => {
-    const configs = getConfigurations();
-    const active = configs.find(c => c.isActive);
+    const active = configRepo.getActive();
     if (!active) {
       return res.status(404).json({ error: 'No active configuration found' });
     }
@@ -19,48 +16,38 @@ export function createConfigRouter(
 
   // GET all configurations
   router.get('/all', (_req: Request, res: Response) => {
-    res.json(getConfigurations());
+    res.json(configRepo.getAll());
   });
 
   // PUT update configuration
   router.put('/:id', (req: Request, res: Response) => {
     const { id } = req.params;
     const updates = req.body as Partial<ShiftConfiguration>;
-    const configs = getConfigurations();
 
-    const index = configs.findIndex(c => c.id === id);
-    if (index === -1) {
+    const existing = configRepo.getById(id);
+    if (!existing) {
       return res.status(404).json({ error: 'Configuration not found' });
     }
 
-    configs[index] = {
-      ...configs[index],
+    const merged: ShiftConfiguration = {
+      ...existing,
       ...updates,
-      id: configs[index].id, // Prevent id change
+      id: existing.id, // Prevent id change
       updatedAt: new Date().toISOString()
     };
 
-    setConfigurations(configs);
-    res.json(configs[index]);
+    const result = configRepo.update(id, merged);
+    res.json(result);
   });
 
   // PUT activate configuration
   router.put('/:id/activate', (req: Request, res: Response) => {
     const { id } = req.params;
-    const configs = getConfigurations();
-
-    const index = configs.findIndex(c => c.id === id);
-    if (index === -1) {
+    const result = configRepo.activate(id);
+    if (!result) {
       return res.status(404).json({ error: 'Configuration not found' });
     }
-
-    // Deactivate all, then activate the requested one
-    configs.forEach(c => c.isActive = false);
-    configs[index].isActive = true;
-    configs[index].updatedAt = new Date().toISOString();
-
-    setConfigurations(configs);
-    res.json(configs[index]);
+    res.json(result);
   });
 
   return router;

@@ -2,3 +2,8 @@ node_modules/
 .env
 *.log
 dist/
+
+# SQLite database files
+*.db
+*.db-wal
+*.db-shm
