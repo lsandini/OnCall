@@ -63,6 +63,12 @@ export function useApi() {
       body: JSON.stringify({ year, month })
     }), [fetchJson]);
 
+  const fillScheduleGaps = useCallback((year: number, month: number) =>
+    fetchJson<MonthlySchedule>('/schedules/fill-gaps', {
+      method: 'POST',
+      body: JSON.stringify({ year, month })
+    }), [fetchJson]);
+
   const updateAssignment = useCallback((year: number, month: number, assignmentId: string, workerId: string) =>
     fetchJson(`/schedules/${year}/${month}/assignment/${assignmentId}`, {
       method: 'PUT',
@@ -129,6 +135,7 @@ export function useApi() {
     getSchedules,
     getSchedule,
     generateSchedule,
+    fillScheduleGaps,
     updateAssignment,
     getWeeks,
     getConfiguration,

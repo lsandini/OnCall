@@ -1,5 +1,5 @@
 #!/bin/bash
 
 git add .
-git commit -m "add random shuffle for equally-scored workers"
+git commit -m "filling gaps"
 git push -u origin main

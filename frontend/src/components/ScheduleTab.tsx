@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Worker, MonthlySchedule, ShiftAssignment, ShiftType, LinePosition, Holiday, ShiftConfiguration } from '../types';
+import { Worker, MonthlySchedule, ShiftAssignment, ShiftType, LinePosition, Holiday, ShiftConfiguration, WeeklyAvailability } from '../types';
 import { useApi } from '../hooks/useApi';
 import {
   MONTH_NAMES,
@@ -28,12 +28,23 @@ function toDateStr(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+// ISO week number (matches backend logic)
+function getWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
 export default function ScheduleTab({ workers, schedule, year, month, onScheduleChange }: Props) {
   const [generating, setGenerating] = useState(false);
+  const [fillingGaps, setFillingGaps] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [editingAssignment, setEditingAssignment] = useState<ShiftAssignment | null>(null);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [configuration, setConfiguration] = useState<ShiftConfiguration | null>(null);
+  const [availability, setAvailability] = useState<WeeklyAvailability[]>([]);
 
   const api = useApi();
 
@@ -44,6 +55,10 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
   useEffect(() => {
     api.getConfiguration().then(setConfiguration).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    api.getAvailability().then(setAvailability).catch(() => setAvailability([]));
+  }, [schedule]);
 
   // Build dynamic shift labels from configuration
   const shiftLabels = useMemo(() => {
@@ -67,6 +82,18 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
       alert('Failed to generate schedule');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleFillGaps = async () => {
+    setFillingGaps(true);
+    try {
+      await api.fillScheduleGaps(year, month);
+      onScheduleChange();
+    } catch (e) {
+      alert('Failed to fill gaps');
+    } finally {
+      setFillingGaps(false);
     }
   };
 
@@ -113,6 +140,31 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     });
     return stats;
   }, [schedule]);
+
+  // Detect assignments where the worker is now unavailable (gaps)
+  const conflictedAssignmentIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!schedule || availability.length === 0) return ids;
+    for (const a of schedule.assignments) {
+      const [y, m, d] = a.date.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      const week = getWeekNumber(date);
+      const day = date.getDay();
+      const entry = availability.find(av =>
+        av.workerId === a.workerId &&
+        av.year === y &&
+        av.week === week &&
+        av.day === day &&
+        av.shiftType === a.shiftType
+      );
+      if (entry?.status === 'unavailable') {
+        ids.add(a.id);
+      }
+    }
+    return ids;
+  }, [schedule, availability]);
+
+  const gapCount = conflictedAssignmentIds.size;
 
   const EligibleWorkerSelector = ({ assignment }: { assignment: ShiftAssignment }) => {
     const eligible = workers.filter(w => {
@@ -219,17 +271,22 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
                   <div className="space-y-1">
                     {shiftAssignments.map(a => {
                       const worker = getWorker(a.workerId);
+                      const isConflict = conflictedAssignmentIds.has(a.id);
                       return (
                         <button
                           key={a.id}
                           onClick={() => setEditingAssignment(a)}
-                          className={`w-full text-left px-2 py-1 text-xs border ${POSITION_COLORS[a.position]} hover:opacity-80 transition-opacity`}
+                          className={`w-full text-left px-2 py-1 text-xs border ${isConflict ? 'border-red-500 bg-clay-50' : POSITION_COLORS[a.position]} hover:opacity-80 transition-opacity`}
                         >
                           <span className="font-semibold">{POSITION_LABELS[a.position]}:</span>{' '}
-                          <span className="font-mono">
-                            {worker?.name.split(' ').slice(-1)[0]}
-                            {worker?.type === 'external' && ' (EXT)'}
-                          </span>
+                          {isConflict ? (
+                            <span className="font-mono text-clay-500 italic">VACANT</span>
+                          ) : (
+                            <span className="font-mono">
+                              {worker?.name.split(' ').slice(-1)[0]}
+                              {worker?.type === 'external' && ' (EXT)'}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -243,41 +300,6 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     );
   };
 
-  const StatsPanel = () => {
-    const roleStats = useMemo(() => {
-      const stats = { senior: 0, resident: 0, student: 0 };
-      workerStats.forEach((count, workerId) => {
-        const worker = getWorker(workerId);
-        if (!worker) return;
-        if (worker.role === 'senior_specialist') stats.senior += count;
-        else if (worker.role === 'resident') stats.resident += count;
-        else stats.student += count;
-      });
-      return stats;
-    }, [workerStats]);
-
-    return (
-      <div className="card-sharp p-4 mb-6">
-        <h3 className="text-sm font-bold text-steel-700 uppercase tracking-wide mb-4">
-          Distribution Summary
-        </h3>
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <div className="text-2xl font-bold font-mono text-clay-600">{roleStats.senior}</div>
-            <div className="text-xs text-steel-500 uppercase">Supervisor</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold font-mono text-steel-500">{roleStats.resident}</div>
-            <div className="text-xs text-steel-500 uppercase">Resident</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold font-mono text-clinic-600">{roleStats.student}</div>
-            <div className="text-xs text-steel-500 uppercase">Student</div>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const WorkerLoadTable = () => {
     const sortedWorkers = [...workers]
@@ -324,10 +346,17 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     const getWorkerName = (workerId: string) => {
       const worker = getWorker(workerId);
       if (!worker) return '-';
-      // Return last name only for compactness
       const parts = worker.name.split(' ');
       const lastName = parts[parts.length - 1];
       return worker.type === 'external' ? `${lastName}*` : lastName;
+    };
+
+    const renderCell = (assignment: ShiftAssignment | undefined) => {
+      if (!assignment) return '-';
+      if (conflictedAssignmentIds.has(assignment.id)) {
+        return <span className="text-red-500 italic ring-1 ring-red-500 px-1 rounded-sm">VACANT</span>;
+      }
+      return getWorkerName(assignment.workerId);
     };
 
     // Get the main (non-night) assignment for a position on a date
@@ -408,19 +437,19 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
                       )}
                     </td>
                     <td className="px-2 py-1.5 text-center border-l border-steel-100">
-                      {supervisor ? getWorkerName(supervisor.workerId) : '-'}
+                      {renderCell(supervisor)}
                     </td>
                     <td className="px-2 py-1.5 text-center border-l border-steel-100">
-                      {firstLine ? getWorkerName(firstLine.workerId) : '-'}
+                      {renderCell(firstLine)}
                     </td>
                     <td className="px-2 py-1.5 text-center border-l border-steel-100">
-                      {secondLine ? getWorkerName(secondLine.workerId) : '-'}
+                      {renderCell(secondLine)}
                     </td>
                     <td className="px-2 py-1.5 text-center border-l border-steel-100">
-                      {thirdLine ? getWorkerName(thirdLine.workerId) : '-'}
+                      {renderCell(thirdLine)}
                     </td>
                     <td className="px-2 py-1.5 text-center border-l border-steel-100 bg-steel-200/30">
-                      {nightFirstLine ? getWorkerName(nightFirstLine.workerId) : '-'}
+                      {renderCell(nightFirstLine)}
                     </td>
                   </tr>
                 );
@@ -479,6 +508,16 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
             </button>
           </div>
 
+          {schedule && gapCount > 0 && (
+            <button
+              onClick={handleFillGaps}
+              disabled={fillingGaps}
+              className="px-4 py-2 border-2 border-clay-400 text-clay-700 font-semibold hover:bg-clay-50 transition-colors disabled:opacity-50"
+            >
+              {fillingGaps ? 'Filling...' : `Fill Gaps (${gapCount})`}
+            </button>
+          )}
+
           <button
             onClick={handleGenerate}
             disabled={generating}
@@ -506,7 +545,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
         </div>
       ) : viewMode === 'calendar' ? (
         <>
-          <StatsPanel />
+
           <div className="grid grid-cols-7 gap-3">
             {/* Day headers (Monday-first) */}
             {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
@@ -528,7 +567,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
         </>
       ) : viewMode === 'list' ? (
         <>
-          <StatsPanel />
+
           <h3 className="text-sm font-bold text-steel-700 uppercase tracking-wide mb-4">
             Worker Load Distribution
           </h3>

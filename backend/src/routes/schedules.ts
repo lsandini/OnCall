@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { generateMonthlySchedule } from '../services/scheduler.js';
+import { generateMonthlySchedule, fillScheduleGaps } from '../services/scheduler.js';
 import { WorkerRepo } from '../repositories/workerRepo.js';
 import { AvailabilityRepo } from '../repositories/availabilityRepo.js';
 import { ScheduleRepo } from '../repositories/scheduleRepo.js';
@@ -66,6 +66,42 @@ export function createSchedulesRouter(
 
     scheduleRepo.save(newSchedule);
     res.json(newSchedule);
+  });
+
+  // POST fill gaps in existing schedule
+  router.post('/fill-gaps', (req: Request, res: Response) => {
+    const { year, month } = req.body;
+
+    if (!year || !month) {
+      return res.status(400).json({ error: 'Year and month are required' });
+    }
+
+    const existing = scheduleRepo.getByMonth(year, month);
+    if (!existing) {
+      return res.status(404).json({ error: 'No existing schedule found for this month' });
+    }
+
+    const workers = workerRepo.getAll();
+    const availability = availabilityRepo.getAll();
+    const configuration = configRepo.getActive();
+
+    const country = settingsRepo.get('country') || 'FI';
+    const firstDay = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDay = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
+    const holidays = holidayRepo.getByDateRange(firstDay, lastDay, country);
+
+    const updated = fillScheduleGaps(
+      year,
+      month,
+      existing.assignments,
+      workers,
+      availability,
+      configuration,
+      holidays
+    );
+
+    scheduleRepo.save(updated);
+    res.json(updated);
   });
 
   // PUT update single assignment

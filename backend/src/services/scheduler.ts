@@ -230,3 +230,138 @@ export function generateMonthlySchedule(
     generatedAt: new Date().toISOString()
   };
 }
+
+export function fillScheduleGaps(
+  year: number,
+  month: number,
+  existingAssignments: ShiftAssignment[],
+  workers: Worker[],
+  availability: WeeklyAvailability[],
+  configuration?: ShiftConfiguration,
+  holidays?: { date: string; name: string }[]
+): MonthlySchedule {
+  const dates = getDatesInMonth(year, month);
+  const activeWorkers = workers.filter(w => w.active);
+  const dailyRequirements = configuration?.dailyRequirements || [];
+
+  // Step 1: Remove assignments where the worker is now unavailable
+  const keptAssignments = existingAssignments.filter(a => {
+    const worker = activeWorkers.find(w => w.id === a.workerId);
+    if (!worker) return false; // worker deactivated — remove assignment
+    const [y, m, d] = a.date.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const avail = getWorkerAvailability(worker, availability, date, a.shiftType);
+    return avail !== 'unavailable';
+  });
+
+  // Step 2: Initialize shift counts from kept assignments
+  const shiftCounts: Map<string, number> = new Map();
+  activeWorkers.forEach(w => shiftCounts.set(w.id, 0));
+  keptAssignments.forEach(a => {
+    shiftCounts.set(a.workerId, (shiftCounts.get(a.workerId) || 0) + 1);
+  });
+
+  // Step 3: Build a set of already-filled (date, shiftType, position) slots
+  const filledSlots = new Set(
+    keptAssignments.map(a => `${a.date}|${a.shiftType}|${a.position}`)
+  );
+
+  // Step 4: Walk every required slot and fill gaps
+  const newAssignments: ShiftAssignment[] = [];
+  // Combine kept + new so constraint checks (same-day, same-shift) see everything
+  const allAssignments = [...keptAssignments];
+
+  for (const date of dates) {
+    const dayOfWeek = date.getDay();
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+    const isHoliday = holidays?.some(h => h.date === dateStr);
+    const effectiveDayOfWeek = isHoliday ? 0 : dayOfWeek;
+
+    const dayRequirements = dailyRequirements.filter(r => r.dayOfWeek === effectiveDayOfWeek);
+
+    for (const req of dayRequirements) {
+      const shiftType = req.shiftTypeId as ShiftType;
+
+      for (const position of req.positions) {
+        const slotKey = `${dateStr}|${shiftType}|${position}`;
+        if (filledSlots.has(slotKey)) continue; // already assigned — skip
+
+        // Same eligibility logic as generateMonthlySchedule
+        const eligibleWorkers = activeWorkers.filter(w => {
+          if (!isWorkerEmployedOnDate(w, date)) return false;
+          if (!canFillPosition(w, position)) return false;
+          if (isWorkerAssignedToShift(w.id, dateStr, shiftType, allAssignments)) return false;
+
+          if (position !== 'supervisor') {
+            const hasOtherShift = isWorkerAssignedOnDate(w.id, dateStr, allAssignments);
+            if (hasOtherShift && !w.canDoubleSift) return false;
+          }
+
+          return true;
+        });
+
+        if (eligibleWorkers.length === 0) continue;
+
+        const scoredWorkers = eligibleWorkers.map(w => {
+          const avail = getWorkerAvailability(w, availability, date, shiftType);
+          const currentShifts = shiftCounts.get(w.id) || 0;
+
+          let score = 0;
+          if (avail === 'preferred') score += 100;
+          else if (avail === 'available') score += 50;
+          else if (avail === 'unavailable') score -= 1000;
+
+          score -= currentShifts * 10;
+          if (w.type === 'permanent') score += 5;
+
+          return { worker: w, score };
+        });
+
+        scoredWorkers.sort((a, b) => b.score - a.score || Math.random() - 0.5);
+
+        const selected = scoredWorkers[0];
+        if (selected && selected.score > -500) {
+          const assignment: ShiftAssignment = {
+            id: generateId(),
+            date: dateStr,
+            shiftType,
+            position,
+            workerId: selected.worker.id,
+            isDoubleShift: false
+          };
+          newAssignments.push(assignment);
+          allAssignments.push(assignment);
+          shiftCounts.set(selected.worker.id, (shiftCounts.get(selected.worker.id) || 0) + 1);
+        }
+      }
+    }
+  }
+
+  // Step 5: Merge and mark double shifts
+  const merged = [...keptAssignments, ...newAssignments];
+
+  const workerDateShifts = new Map<string, ShiftAssignment[]>();
+  merged.forEach(a => {
+    const key = `${a.workerId}-${a.date}`;
+    if (!workerDateShifts.has(key)) workerDateShifts.set(key, []);
+    workerDateShifts.get(key)!.push(a);
+  });
+
+  workerDateShifts.forEach((shifts) => {
+    if (shifts.length >= 2) {
+      const hasEvening = shifts.some(s => s.shiftType === 'evening');
+      const hasNight = shifts.some(s => s.shiftType === 'night');
+      if (hasEvening && hasNight) {
+        shifts.forEach(s => s.isDoubleShift = true);
+      }
+    }
+  });
+
+  return {
+    year,
+    month,
+    assignments: merged,
+    generatedAt: new Date().toISOString()
+  };
+}
