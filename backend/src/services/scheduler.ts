@@ -185,8 +185,8 @@ export function generateMonthlySchedule(
           return { worker: w, score };
         });
 
-        // Sort by score (descending) and pick the best
-        scoredWorkers.sort((a, b) => b.score - a.score);
+        // Sort by score (descending), shuffling ties randomly
+        scoredWorkers.sort((a, b) => b.score - a.score || Math.random() - 0.5);
 
         const selected = scoredWorkers[0];
         if (selected && selected.score > -500) { // Don't assign if only unavailable workers
