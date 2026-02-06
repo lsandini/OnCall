@@ -153,6 +153,9 @@ export default function App() {
           <p className="text-xs text-steel-400 font-mono">
             ONCALL v1.0 // Internal Medicine Clinic // {workers.filter(w => w.active).length} active personnel
           </p>
+          <p className="text-xs text-steel-300 font-mono mt-1">
+            &copy; {new Date().getFullYear()} Lorenzo Sandini
+          </p>
         </div>
       </footer>
     </div>
