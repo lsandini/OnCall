@@ -86,6 +86,16 @@ All endpoints prefixed with `/api/`. Main routes:
 - `/api/schedules` - generation and management
 - `/api/config` - shift config, countries, settings, holidays
 
+## Color Palette
+
+Hospital/operating theatre inspired. Three muted color families only — defined as CSS custom properties in `frontend/src/index.css` under `@theme`.
+
+- **clinic** (surgical scrub sage-teal): Primary actions, buttons, active states, student role indicators
+- **steel** (instrument cool gray): Neutrals, text, borders, backgrounds, resident role indicators, night shift
+- **clay** (muted terracotta): The single warm accent — danger, alerts, supervisor role, weekends, holidays, external workers
+
+Semantic mappings in `frontend/src/utils/helpers.ts` (`SHIFT_COLORS`, `POSITION_COLORS`). Do not introduce new Tailwind color families (no `rose`, `amber`, `sky`, `emerald`, `indigo`, `violet`). All UI color needs should be met by `clinic`, `steel`, and `clay` at various shade levels (50–900).
+
 ## Holidays
 
 - Uses `date-holidays` npm package (offline, 100+ countries)

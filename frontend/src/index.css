@@ -1,27 +1,38 @@
 @import "tailwindcss";
 
 @theme {
-  --color-clinic-50: #f0fdf9;
-  --color-clinic-100: #ccfbef;
-  --color-clinic-200: #99f6df;
-  --color-clinic-300: #5ceac9;
-  --color-clinic-400: #2ad4b0;
-  --color-clinic-500: #0fb897;
-  --color-clinic-600: #09957b;
-  --color-clinic-700: #0b7764;
-  --color-clinic-800: #0e5e51;
-  --color-clinic-900: #104d44;
+  --color-clinic-50:  #f0f4f3;
+  --color-clinic-100: #dae6e2;
+  --color-clinic-200: #b6cdc6;
+  --color-clinic-300: #89afa5;
+  --color-clinic-400: #618f83;
+  --color-clinic-500: #4a766b;
+  --color-clinic-600: #3b6057;
+  --color-clinic-700: #324f48;
+  --color-clinic-800: #2b423d;
+  --color-clinic-900: #253835;
 
-  --color-steel-50: #f6f7f9;
-  --color-steel-100: #eceef2;
-  --color-steel-200: #d5dae2;
-  --color-steel-300: #b1bac9;
-  --color-steel-400: #8795ab;
-  --color-steel-500: #687890;
-  --color-steel-600: #536077;
-  --color-steel-700: #444e61;
-  --color-steel-800: #3b4352;
-  --color-steel-900: #343a46;
+  --color-steel-50:  #f3f4f6;
+  --color-steel-100: #e5e8ec;
+  --color-steel-200: #ccd2d9;
+  --color-steel-300: #a7b1bd;
+  --color-steel-400: #7d8b9b;
+  --color-steel-500: #627080;
+  --color-steel-600: #515c69;
+  --color-steel-700: #434c57;
+  --color-steel-800: #3a424a;
+  --color-steel-900: #333940;
+
+  --color-clay-50:  #f6f3f2;
+  --color-clay-100: #ece6e3;
+  --color-clay-200: #d9ccc7;
+  --color-clay-300: #c0aaa1;
+  --color-clay-400: #a5887c;
+  --color-clay-500: #8e7164;
+  --color-clay-600: #755c51;
+  --color-clay-700: #604c44;
+  --color-clay-800: #51413a;
+  --color-clay-900: #463833;
 
   --font-display: 'DM Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -32,9 +43,9 @@
 
 body {
   font-family: 'DM Sans', system-ui, sans-serif;
-  background-color: #f6f7f9;
+  background-color: #f3f4f6;
   background-image:
-    radial-gradient(circle at 1px 1px, #d5dae2 1px, transparent 0);
+    radial-gradient(circle at 1px 1px, #ccd2d9 1px, transparent 0);
   background-size: 24px 24px;
 }
 
@@ -49,16 +60,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #eceef2;
+  background: #e5e8ec;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #b1bac9;
+  background: #a7b1bd;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #8795ab;
+  background: #7d8b9b;
 }
 
 /* Sharp card style */

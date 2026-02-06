@@ -11,9 +11,9 @@ interface Props {
 
 const STATUS_COLORS: Record<AvailabilityStatus | 'default', string> = {
   default: 'bg-white border-steel-200 hover:bg-steel-50',
-  available: 'bg-white border-steel-200 hover:bg-steel-50', // Same as default visually
+  available: 'bg-white border-steel-200 hover:bg-steel-50',
   preferred: 'bg-clinic-100 border-clinic-400 hover:bg-clinic-200',
-  unavailable: 'bg-rose-100 border-rose-400 hover:bg-rose-200'
+  unavailable: 'bg-clay-100 border-clay-400 hover:bg-clay-200'
 };
 
 const DAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -197,7 +197,7 @@ export default function AvailabilityEditor({ worker, year, onClose }: Props) {
               <span className="text-steel-500">Preferred</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-4 h-4 border rounded bg-rose-100 border-rose-400" />
+              <div className="w-4 h-4 border rounded bg-clay-100 border-clay-400" />
               <span className="text-steel-500">Unavailable</span>
             </div>
           </div>
@@ -228,7 +228,7 @@ export default function AvailabilityEditor({ worker, year, onClose }: Props) {
                   className={`h-9 w-full border rounded flex items-center justify-center transition-colors text-sm font-mono ${STATUS_COLORS[status]} ${weekend ? 'bg-opacity-50' : ''} disabled:opacity-50`}
                   title={status !== 'default' ? status : ''}
                 >
-                  <span className={weekend ? 'text-amber-700' : 'text-steel-700'}>
+                  <span className={weekend ? 'text-clay-600' : 'text-steel-700'}>
                     {date.getDate()}
                   </span>
                 </button>

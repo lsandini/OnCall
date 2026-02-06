@@ -241,7 +241,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
   if (error && !configuration) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-rose-600">{error}</div>
+        <div className="text-clay-600">{error}</div>
       </div>
     );
   }
@@ -334,15 +334,15 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
                     <span className="text-sm text-steel-900">{h.name}</span>
                     <span className={`text-xs px-2 py-0.5 font-semibold ${
                       h.type === 'custom'
-                        ? 'bg-violet-100 text-violet-700 border border-violet-200'
-                        : 'bg-sky-100 text-sky-700 border border-sky-200'
+                        ? 'bg-steel-100 text-steel-700 border border-steel-200'
+                        : 'bg-clinic-50 text-clinic-700 border border-clinic-200'
                     }`}>
                       {h.type}
                     </span>
                   </div>
                   <button
                     onClick={() => handleRemoveHoliday(h.date)}
-                    className="text-steel-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity text-lg leading-none"
+                    className="text-steel-400 hover:text-clay-500 opacity-0 group-hover:opacity-100 transition-opacity text-lg leading-none"
                     title="Remove holiday"
                   >
                     &times;
@@ -422,7 +422,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+        <div className="mb-4 p-3 bg-clay-50 border border-clay-200 text-clay-700 text-sm">
           {error}
         </div>
       )}
@@ -437,9 +437,9 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
             <div key={st.id} className="card-sharp p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className={`w-3 h-3 ${
-                  st.id === 'day' ? 'bg-amber-400' :
-                  st.id === 'evening' ? 'bg-sky-400' :
-                  'bg-indigo-400'
+                  st.id === 'day' ? 'bg-clay-400' :
+                  st.id === 'evening' ? 'bg-clinic-400' :
+                  'bg-steel-500'
                 }`}></div>
                 <h4 className="font-semibold text-steel-900">{st.name}</h4>
               </div>
@@ -499,9 +499,9 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
                   >
                     <div className="flex items-center justify-center gap-2">
                       <div className={`w-2 h-2 ${
-                        st.id === 'day' ? 'bg-amber-400' :
-                        st.id === 'evening' ? 'bg-sky-400' :
-                        'bg-indigo-400'
+                        st.id === 'day' ? 'bg-clay-400' :
+                        st.id === 'evening' ? 'bg-clinic-400' :
+                        'bg-steel-500'
                       }`}></div>
                       {st.name}
                     </div>

@@ -97,7 +97,7 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
       </td>
       <td className="py-3 px-4">
         {worker.type === 'external' ? (
-          <span className="text-xs px-2 py-0.5 bg-amber-50 border border-amber-300 text-amber-700">EXT</span>
+          <span className="text-xs px-2 py-0.5 bg-clay-100 border border-clay-300 text-clay-700">EXT</span>
         ) : (
           <span className="text-xs text-steel-400">Permanent</span>
         )}
@@ -129,7 +129,7 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
           </button>
           <button
             onClick={() => handleDelete(worker)}
-            className="px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
+            className="px-2 py-1 text-xs font-medium text-clay-600 hover:bg-clay-50 transition-colors"
           >
             Del
           </button>
@@ -211,28 +211,28 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
       {/* Stats */}
       <div className="flex gap-6 mb-6 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-rose-500"></div>
+          <div className="w-2 h-2 bg-clay-500"></div>
           <span className="text-steel-600">{seniorSpecialists.length} Supervisors</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-sky-500"></div>
+          <div className="w-2 h-2 bg-steel-400"></div>
           <span className="text-steel-600">{residents.length} Residents</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-emerald-500"></div>
+          <div className="w-2 h-2 bg-clinic-500"></div>
           <span className="text-steel-600">{students.length} Students</span>
         </div>
       </div>
 
       {/* Worker Lists */}
       {(roleFilter === 'all' || roleFilter === 'senior_specialist') && (
-        <WorkerSection title="Senior Specialists (Supervisors)" workers={seniorSpecialists} color="bg-rose-500" />
+        <WorkerSection title="Senior Specialists (Supervisors)" workers={seniorSpecialists} color="bg-clay-500" />
       )}
       {(roleFilter === 'all' || roleFilter === 'resident') && (
-        <WorkerSection title="Residents (1st/2nd Line)" workers={residents} color="bg-sky-500" />
+        <WorkerSection title="Residents (1st/2nd Line)" workers={residents} color="bg-steel-400" />
       )}
       {(roleFilter === 'all' || roleFilter === 'student') && (
-        <WorkerSection title="Medical Students (2nd/3rd Line)" workers={students} color="bg-emerald-500" />
+        <WorkerSection title="Medical Students (2nd/3rd Line)" workers={students} color="bg-clinic-500" />
       )}
 
       {filteredWorkers.length === 0 && (

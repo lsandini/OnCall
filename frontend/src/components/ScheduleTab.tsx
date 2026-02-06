@@ -181,7 +181,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     const positionOrder: LinePosition[] = ['supervisor', 'first_line', 'second_line', 'third_line'];
 
     return (
-      <div className={`card-sharp p-3 ${holiday ? 'bg-rose-50/60 border-rose-200' : isWeekend ? 'bg-amber-50/50' : ''}`}>
+      <div className={`card-sharp p-3 ${holiday ? 'bg-clay-50/60 border-clay-200' : isWeekend ? 'bg-clay-50/30' : ''}`}>
         <div className="mb-3">
           <div className="text-xs font-semibold text-steel-500 uppercase">
             {DAY_NAMES_FULL[dayOfWeek]}
@@ -191,11 +191,11 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
               {date.getDate()}
             </span>
             {holiday ? (
-              <span className="text-[10px] font-semibold text-rose-700 bg-rose-100 border border-rose-300 px-1.5 py-0.5 truncate max-w-full" title={holiday.name}>
+              <span className="text-[10px] font-semibold text-clay-700 bg-clay-100 border border-clay-300 px-1.5 py-0.5 truncate max-w-full" title={holiday.name}>
                 {holiday.name}
               </span>
             ) : isWeekend ? (
-              <span className="badge bg-amber-100 border-amber-300 text-amber-700">Weekend</span>
+              <span className="badge bg-clay-100 border-clay-300 text-clay-600">Weekend</span>
             ) : null}
           </div>
         </div>
@@ -263,15 +263,15 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
         </h3>
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold font-mono text-rose-600">{roleStats.senior}</div>
+            <div className="text-2xl font-bold font-mono text-clay-600">{roleStats.senior}</div>
             <div className="text-xs text-steel-500 uppercase">Supervisor</div>
           </div>
           <div>
-            <div className="text-2xl font-bold font-mono text-sky-600">{roleStats.resident}</div>
+            <div className="text-2xl font-bold font-mono text-steel-500">{roleStats.resident}</div>
             <div className="text-xs text-steel-500 uppercase">Resident</div>
           </div>
           <div>
-            <div className="text-2xl font-bold font-mono text-emerald-600">{roleStats.student}</div>
+            <div className="text-2xl font-bold font-mono text-clinic-600">{roleStats.student}</div>
             <div className="text-xs text-steel-500 uppercase">Student</div>
           </div>
         </div>
@@ -377,11 +377,11 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
             <thead>
               <tr className="bg-steel-100">
                 <th className="px-2 py-2 text-left font-semibold text-steel-600 border-b border-steel-200">Date</th>
-                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-rose-50">Supervisor</th>
-                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-sky-50">1st Line</th>
-                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-emerald-50">2nd Line</th>
-                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-amber-50">3rd Line</th>
-                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-indigo-50">Night</th>
+                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-clay-50">Supervisor</th>
+                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-steel-100">1st Line</th>
+                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-clinic-50">2nd Line</th>
+                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-steel-50">3rd Line</th>
+                <th className="px-2 py-2 text-center font-semibold text-steel-600 border-b border-l border-steel-200 bg-steel-200">Night</th>
               </tr>
             </thead>
             <tbody>
@@ -400,11 +400,11 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
                 const holidayName = getHolidayName(dateStr);
 
                 return (
-                  <tr key={dateStr} className={`border-b border-steel-100 ${holidayOnDate ? 'bg-rose-50/40' : weekend ? 'bg-amber-50/30' : ''}`}>
+                  <tr key={dateStr} className={`border-b border-steel-100 ${holidayOnDate ? 'bg-clay-50/40' : weekend ? 'bg-clay-50/20' : ''}`}>
                     <td className="px-2 py-1.5 font-mono font-medium text-steel-700 whitespace-nowrap">
                       {formatDateShort(dateStr)}
                       {holidayOnDate && (
-                        <span className="ml-1 text-[10px] text-rose-600 font-semibold" title={holidayName}>H</span>
+                        <span className="ml-1 text-[10px] text-clay-600 font-semibold" title={holidayName}>H</span>
                       )}
                     </td>
                     <td className="px-2 py-1.5 text-center border-l border-steel-100">
@@ -419,7 +419,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
                     <td className="px-2 py-1.5 text-center border-l border-steel-100">
                       {thirdLine ? getWorkerName(thirdLine.workerId) : '-'}
                     </td>
-                    <td className="px-2 py-1.5 text-center border-l border-steel-100 bg-indigo-50/30">
+                    <td className="px-2 py-1.5 text-center border-l border-steel-100 bg-steel-200/30">
                       {nightFirstLine ? getWorkerName(nightFirstLine.workerId) : '-'}
                     </td>
                   </tr>

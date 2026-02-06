@@ -20,16 +20,16 @@ export const SHIFT_LABELS: Record<ShiftType, string> = {
 };
 
 export const SHIFT_COLORS: Record<ShiftType, string> = {
-  day: 'bg-amber-100 text-amber-800 border-amber-300',
+  day: 'bg-clay-100 text-clay-800 border-clay-300',
   evening: 'bg-clinic-100 text-clinic-800 border-clinic-300',
   night: 'bg-steel-200 text-steel-800 border-steel-400'
 };
 
 export const POSITION_COLORS: Record<LinePosition, string> = {
-  supervisor: 'bg-rose-50 border-rose-300 text-rose-700',
-  first_line: 'bg-sky-50 border-sky-300 text-sky-700',
-  second_line: 'bg-emerald-50 border-emerald-300 text-emerald-700',
-  third_line: 'bg-violet-50 border-violet-300 text-violet-700'
+  supervisor: 'bg-clay-50 border-clay-300 text-clay-700',
+  first_line: 'bg-steel-100 border-steel-300 text-steel-700',
+  second_line: 'bg-clinic-50 border-clinic-300 text-clinic-700',
+  third_line: 'bg-steel-50 border-steel-300 text-steel-600'
 };
 
 export const MONTH_NAMES = [

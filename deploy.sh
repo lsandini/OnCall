@@ -1,5 +1,5 @@
 #!/bin/bash
 
 git add .
-git commit -m "updates all main packages and dependencies"
+git commit -m "changed color palette"
 git push -u origin main
