@@ -1,5 +1,5 @@
 #!/bin/bash
 
 git add .
-git commit -m "added general holidays, fixed schedules view"
+git commit -m "updates all main packages and dependencies"
 git push -u origin main

@@ -12,13 +12,13 @@ export function createAvailabilityRouter(availabilityRepo: AvailabilityRepo) {
 
   // GET availability for a specific worker
   router.get('/worker/:workerId', (req: Request, res: Response) => {
-    res.json(availabilityRepo.getByWorker(req.params.workerId));
+    res.json(availabilityRepo.getByWorker(req.params.workerId as string));
   });
 
   // GET availability for a specific week
   router.get('/week/:year/:week', (req: Request, res: Response) => {
-    const year = parseInt(req.params.year);
-    const week = parseInt(req.params.week);
+    const year = parseInt(req.params.year as string);
+    const week = parseInt(req.params.week as string);
     res.json(availabilityRepo.getByWeek(year, week));
   });
 

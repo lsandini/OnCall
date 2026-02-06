@@ -37,7 +37,7 @@ export function createConfigRouter(
 
   // GET states/regions for a country
   router.get('/countries/:code/states', (req: Request, res: Response) => {
-    const states = getSupportedStates(req.params.code);
+    const states = getSupportedStates(req.params.code as string);
     res.json(states || []);
   });
 
@@ -70,7 +70,7 @@ export function createConfigRouter(
 
   // GET holidays for a year
   router.get('/holidays/:year', (req: Request, res: Response) => {
-    const year = parseInt(req.params.year);
+    const year = parseInt(req.params.year as string);
     const country = settingsRepo.get('country') || 'FI';
     res.json(holidayRepo.getByYear(year, country));
   });
@@ -89,7 +89,7 @@ export function createConfigRouter(
   // DELETE a holiday
   router.delete('/holidays/:date', (req: Request, res: Response) => {
     const country = settingsRepo.get('country') || 'FI';
-    const removed = holidayRepo.remove(req.params.date, country);
+    const removed = holidayRepo.remove(req.params.date as string, country);
     if (!removed) {
       return res.status(404).json({ error: 'Holiday not found' });
     }
@@ -98,7 +98,7 @@ export function createConfigRouter(
 
   // PUT update configuration
   router.put('/:id', (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const updates = req.body as Partial<ShiftConfiguration>;
 
     const existing = configRepo.getById(id);
@@ -119,7 +119,7 @@ export function createConfigRouter(
 
   // PUT activate configuration
   router.put('/:id/activate', (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const result = configRepo.activate(id);
     if (!result) {
       return res.status(404).json({ error: 'Configuration not found' });

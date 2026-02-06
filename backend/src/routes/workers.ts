@@ -12,7 +12,7 @@ export function createWorkersRouter(workerRepo: WorkerRepo) {
 
   // GET single worker
   router.get('/:id', (req: Request, res: Response) => {
-    const worker = workerRepo.getById(req.params.id);
+    const worker = workerRepo.getById(req.params.id as string);
     if (!worker) {
       return res.status(404).json({ error: 'Worker not found' });
     }
@@ -37,7 +37,7 @@ export function createWorkersRouter(workerRepo: WorkerRepo) {
 
   // PUT update worker
   router.put('/:id', (req: Request, res: Response) => {
-    const updated = workerRepo.update(req.params.id, {
+    const updated = workerRepo.update(req.params.id as string, {
       name: req.body.name,
       role: req.body.role,
       type: req.body.type,
@@ -54,7 +54,7 @@ export function createWorkersRouter(workerRepo: WorkerRepo) {
 
   // DELETE worker (soft delete - sets active to false)
   router.delete('/:id', (req: Request, res: Response) => {
-    const deleted = workerRepo.softDelete(req.params.id);
+    const deleted = workerRepo.softDelete(req.params.id as string);
     if (!deleted) {
       return res.status(404).json({ error: 'Worker not found' });
     }

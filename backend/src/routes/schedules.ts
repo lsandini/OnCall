@@ -24,8 +24,8 @@ export function createSchedulesRouter(
 
   // GET schedule for specific month
   router.get('/:year/:month', (req: Request, res: Response) => {
-    const year = parseInt(req.params.year);
-    const month = parseInt(req.params.month);
+    const year = parseInt(req.params.year as string);
+    const month = parseInt(req.params.month as string);
     const schedule = scheduleRepo.getByMonth(year, month);
 
     if (!schedule) {
@@ -70,9 +70,9 @@ export function createSchedulesRouter(
 
   // PUT update single assignment
   router.put('/:year/:month/assignment/:assignmentId', (req: Request, res: Response) => {
-    const year = parseInt(req.params.year);
-    const month = parseInt(req.params.month);
-    const assignmentId = req.params.assignmentId;
+    const year = parseInt(req.params.year as string);
+    const month = parseInt(req.params.month as string);
+    const assignmentId = req.params.assignmentId as string;
     const { workerId } = req.body;
 
     const schedule = scheduleRepo.getByMonth(year, month);
@@ -90,8 +90,8 @@ export function createSchedulesRouter(
 
   // DELETE schedule for a month
   router.delete('/:year/:month', (req: Request, res: Response) => {
-    const year = parseInt(req.params.year);
-    const month = parseInt(req.params.month);
+    const year = parseInt(req.params.year as string);
+    const month = parseInt(req.params.month as string);
     scheduleRepo.deleteByMonth(year, month);
     res.status(204).send();
   });
