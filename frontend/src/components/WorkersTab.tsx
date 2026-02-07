@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Worker, WorkerRole, WorkerType } from '../types';
 import { useApi } from '../hooks/useApi';
-import { getRoleLabels, getMonthNames } from '../utils/helpers';
+import { getRoleLabels, getMonthNames, formatDateFull } from '../utils/helpers';
 import { useTranslation } from '../i18n';
 import WorkerForm from './WorkerForm';
 import AvailabilityEditor from './AvailabilityEditor';
@@ -30,13 +30,6 @@ function isWorkerActiveInMonth(worker: Worker, year: number, month: number): boo
   return startDate <= monthEnd && endDate >= monthStart;
 }
 
-// Format date for display
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return '-';
-  const d = new Date(dateStr);
-  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
-}
-
 export default function WorkersTab({ workers, onWorkersChange, selectedYear, selectedMonth, clinicId }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
@@ -45,7 +38,7 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
   const [typeFilter, setTypeFilter] = useState<WorkerType | 'all'>('all');
 
   const api = useApi();
-  const { t, translations } = useTranslation();
+  const { t, locale, translations } = useTranslation();
   const monthNames = getMonthNames(translations);
   const roleLabels = getRoleLabels(translations);
 
@@ -108,13 +101,13 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
         )}
       </td>
       <td className="py-3 px-4 text-xs font-mono text-steel-500">
-        {formatDate(worker.startDate)}
+        {formatDateFull(worker.startDate, locale)}
       </td>
       <td className="py-3 px-4 text-xs font-mono text-steel-500">
-        {formatDate(worker.endDate)}
+        {formatDateFull(worker.endDate, locale)}
       </td>
       <td className="py-3 px-4">
-        {worker.canDoubleSift && (
+        {worker.canDoubleShift && (
           <span className="text-xs px-2 py-0.5 bg-clinic-50 border border-clinic-300 text-clinic-700">2x</span>
         )}
       </td>

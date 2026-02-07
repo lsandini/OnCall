@@ -21,7 +21,7 @@ function rowToWorker(row: WorkerRow): Worker {
     name: row.name,
     role: row.role as Worker['role'],
     type: row.type as Worker['type'],
-    canDoubleSift: row.can_double_shift === 1,
+    canDoubleShift: row.can_double_shift === 1,
     yearOfStudy: row.year_of_study ?? undefined,
     startDate: row.start_date ?? undefined,
     endDate: row.end_date ?? undefined,
@@ -42,10 +42,11 @@ export function createWorkerRepo(db: Database.Database) {
     update: db.prepare(`
       UPDATE workers
       SET name = @name, role = @role, type = @type, can_double_shift = @can_double_shift,
-          year_of_study = @year_of_study, active = @active
+          year_of_study = @year_of_study, start_date = @start_date, end_date = @end_date, active = @active
       WHERE id = @id
     `),
     softDelete: db.prepare('UPDATE workers SET active = 0 WHERE id = ?'),
+    deleteAvailability: db.prepare('DELETE FROM weekly_availability WHERE worker_id = ?'),
     count: db.prepare('SELECT COUNT(*) AS cnt FROM workers WHERE clinic_id = ?'),
   };
 
@@ -65,7 +66,7 @@ export function createWorkerRepo(db: Database.Database) {
         name: worker.name,
         role: worker.role,
         type: worker.type,
-        can_double_shift: worker.canDoubleSift ? 1 : 0,
+        can_double_shift: worker.canDoubleShift ? 1 : 0,
         year_of_study: worker.yearOfStudy ?? null,
         start_date: worker.startDate ?? null,
         end_date: worker.endDate ?? null,
@@ -85,12 +86,18 @@ export function createWorkerRepo(db: Database.Database) {
         name: fields.name ?? existing.name,
         role: fields.role ?? existing.role,
         type: fields.type ?? existing.type,
-        can_double_shift: fields.canDoubleSift !== undefined
-          ? (fields.canDoubleSift ? 1 : 0)
+        can_double_shift: fields.canDoubleShift !== undefined
+          ? (fields.canDoubleShift ? 1 : 0)
           : existing.can_double_shift,
         year_of_study: fields.yearOfStudy !== undefined
           ? (fields.yearOfStudy ?? null)
           : existing.year_of_study,
+        start_date: fields.startDate !== undefined
+          ? (fields.startDate ?? null)
+          : existing.start_date,
+        end_date: fields.endDate !== undefined
+          ? (fields.endDate ?? null)
+          : existing.end_date,
         active: fields.active !== undefined
           ? (fields.active ? 1 : 0)
           : existing.active,
@@ -100,10 +107,14 @@ export function createWorkerRepo(db: Database.Database) {
       return this.getById(id);
     },
 
-    softDelete(id: string): boolean {
+    softDelete: db.transaction((id: string): boolean => {
       const info = stmts.softDelete.run(id);
-      return info.changes > 0;
-    },
+      if (info.changes > 0) {
+        stmts.deleteAvailability.run(id);
+        return true;
+      }
+      return false;
+    }),
 
     count(clinicId: string): number {
       return (stmts.count.get(clinicId) as { cnt: number }).cnt;
@@ -116,7 +127,7 @@ export function createWorkerRepo(db: Database.Database) {
           name: w.name,
           role: w.role,
           type: w.type,
-          can_double_shift: w.canDoubleSift ? 1 : 0,
+          can_double_shift: w.canDoubleShift ? 1 : 0,
           year_of_study: w.yearOfStudy ?? null,
           start_date: w.startDate ?? null,
           end_date: w.endDate ?? null,

@@ -52,6 +52,9 @@ app.get('/api/health', (_req, res) => {
 // Calendar helper - get weeks in a year
 app.get('/api/calendar/weeks/:year', (req, res) => {
   const year = parseInt(req.params.year);
+  if (isNaN(year)) {
+    return res.status(400).json({ error: 'Invalid year' });
+  }
   const weeks: { week: number; startDate: string; endDate: string }[] = [];
 
   // Get first Monday of the year
@@ -61,8 +64,16 @@ app.get('/api/calendar/weeks/:year', (req, res) => {
   const diff = dayOfWeek === 0 ? 1 : (dayOfWeek === 1 ? 0 : 8 - dayOfWeek);
   firstMonday.setDate(firstDay.getDate() + diff);
 
+  // Calculate ISO week count: Dec 28 is always in the last ISO week of its year
+  const dec28 = new Date(year, 11, 28);
+  const dec28Day = dec28.getDay() || 7;
+  const dec28Thu = new Date(dec28);
+  dec28Thu.setDate(dec28.getDate() + (4 - dec28Day));
+  const jan1 = new Date(dec28Thu.getFullYear(), 0, 1);
+  const totalWeeks = Math.ceil((((dec28Thu.getTime() - jan1.getTime()) / 86400000) + 1) / 7);
+
   // Generate all weeks
-  for (let week = 1; week <= 52; week++) {
+  for (let week = 1; week <= totalWeeks; week++) {
     const startDate = new Date(firstMonday);
     startDate.setDate(firstMonday.getDate() + (week - 1) * 7);
 
@@ -77,6 +88,12 @@ app.get('/api/calendar/weeks/:year', (req, res) => {
   }
 
   res.json(weeks);
+});
+
+// Global error handler — prevent raw stack traces leaking to clients
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // Graceful shutdown

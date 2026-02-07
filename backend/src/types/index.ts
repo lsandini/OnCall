@@ -42,7 +42,7 @@ export interface Worker {
   name: string;
   role: WorkerRole;
   type: WorkerType;
-  canDoubleSift: boolean; // For externals: can do evening + night
+  canDoubleShift: boolean; // For externals: can do evening + night
   yearOfStudy?: number; // For students: 4, 5, or 6
   startDate?: string; // Employment start date (YYYY-MM-DD)
   endDate?: string; // Employment end date (YYYY-MM-DD), undefined = ongoing

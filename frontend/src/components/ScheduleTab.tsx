@@ -5,8 +5,10 @@ import {
   getMonthNames,
   getDayNamesFull,
   getDayNames,
+  getRoleLabels,
   getPositionLabels,
   getShiftName,
+  getWeekNumber,
   SHIFT_COLORS,
   POSITION_COLORS,
   formatDate
@@ -33,15 +35,6 @@ function toDateStr(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-// ISO week number (matches backend logic)
-function getWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-}
-
 export default function ScheduleTab({ workers, schedule, year, month, onScheduleChange, clinicId, clinicName }: Props) {
   const [generating, setGenerating] = useState(false);
   const [fillingGaps, setFillingGaps] = useState(false);
@@ -59,6 +52,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
   const dayNamesFull = getDayNamesFull(translations);
   const dayNamesShort = getDayNames(translations);
   const positionLabels = getPositionLabels(translations);
+  const roleLabels = getRoleLabels(translations);
 
   useEffect(() => {
     api.getHolidays(year).then(setHolidays).catch(() => setHolidays([]));
@@ -358,7 +352,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
                         <button
                           key={a.id}
                           onClick={() => !isOverflow && setEditingAssignment(a)}
-                          className={`w-full text-left px-2 py-1 text-xs border ${isConflict ? 'border-red-500 bg-clay-50' : POSITION_COLORS[a.position]} hover:opacity-80 transition-opacity`}
+                          className={`w-full text-left px-2 py-1 text-xs border ${isConflict ? 'border-clay-500 bg-clay-50' : POSITION_COLORS[a.position]} hover:opacity-80 transition-opacity`}
                         >
                           <span className="font-semibold">{positionLabels[a.position]}:</span>{' '}
                           {isConflict ? (
@@ -402,7 +396,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
             {sortedWorkers.map(w => (
               <tr key={w.id} className="border-t border-steel-100 hover:bg-steel-50">
                 <td className="px-4 py-3 font-medium text-steel-900">{w.name}</td>
-                <td className="px-4 py-3 text-sm text-steel-500 font-mono uppercase">{w.role.replace('_', ' ')}</td>
+                <td className="px-4 py-3 text-sm text-steel-500 font-mono uppercase">{roleLabels[w.role]}</td>
                 <td className="px-4 py-3 text-right">
                   <span className="font-mono font-bold text-clinic-600">{workerStats.get(w.id) || 0}</span>
                 </td>
@@ -436,7 +430,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     const renderCell = (assignment: ShiftAssignment | undefined) => {
       if (!assignment) return '-';
       if (conflictedAssignmentIds.has(assignment.id)) {
-        return <span className="text-red-500 italic ring-1 ring-red-500 px-1 rounded-sm">{t('schedule.vacant')}</span>;
+        return <span className="text-clay-600 italic ring-1 ring-clay-400 px-1 rounded-sm">{t('schedule.vacant')}</span>;
       }
       return getWorkerName(assignment.workerId);
     };
@@ -558,7 +552,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
           </h2>
           {schedule && (
             <p className="text-sm text-steel-500 font-mono">
-              {t('schedule.generated')}: {new Date(schedule.generatedAt).toLocaleString()}
+              {t('schedule.generated')}: {new Date(schedule.generatedAt).toLocaleString(locale === 'fi' ? 'fi-FI' : 'en-GB')}
             </p>
           )}
         </div>

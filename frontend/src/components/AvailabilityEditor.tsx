@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Worker, WeeklyAvailability, ShiftType, AvailabilityStatus } from '../types';
 import { useApi } from '../hooks/useApi';
-import { getMonthNames, getDayNames } from '../utils/helpers';
+import { getMonthNames, getDayNames, getWeekNumber } from '../utils/helpers';
 import { useTranslation } from '../i18n';
 
 interface Props {
@@ -16,15 +16,6 @@ const STATUS_COLORS: Record<AvailabilityStatus | 'default', string> = {
   preferred: 'bg-clinic-100 border-clinic-400 hover:bg-clinic-200',
   unavailable: 'bg-clay-100 border-clay-400 hover:bg-clay-200'
 };
-
-// Get ISO week number for a date
-function getWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-}
 
 // Get all shifts relevant for a worker's role
 function getRelevantShifts(role: string): ShiftType[] {

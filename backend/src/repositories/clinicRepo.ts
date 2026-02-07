@@ -69,6 +69,19 @@ export function createClinicRepo(db: Database.Database) {
     count(): number {
       return (stmts.count.get() as { count: number }).count;
     },
+
+    /** Atomically check constraints and delete. Returns error string or null on success. */
+    safeDelete: db.transaction((id: string): string | null => {
+      const clinic = stmts.getById.get(id) as ClinicRow | undefined;
+      if (!clinic) return 'Clinic not found';
+      if ((stmts.count.get() as { count: number }).count <= 1) return 'Cannot delete the last clinic';
+      const wc = (stmts.countWorkers.get(id) as { count: number }).count;
+      const cc = (stmts.countConfigs.get(id) as { count: number }).count;
+      const sc = (stmts.countSchedules.get(id) as { count: number }).count;
+      if (wc > 0 || cc > 0 || sc > 0) return 'Clinic has data. Remove all workers, schedules, and configurations first.';
+      stmts.delete.run(id);
+      return null;
+    }),
   };
 }
 

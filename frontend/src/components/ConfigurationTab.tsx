@@ -33,7 +33,7 @@ export default function ConfigurationTab({ onConfigChange, clinicId }: Props) {
   const [addingHoliday, setAddingHoliday] = useState(false);
 
   const api = useApi();
-  const { t, translations } = useTranslation();
+  const { t, locale, translations } = useTranslation();
   const positionLabels = getPositionLabels(translations);
   const dayNames = getDayNamesFull(translations);
 
@@ -587,7 +587,7 @@ export default function ConfigurationTab({ onConfigChange, clinicId }: Props) {
       {/* Last Updated */}
       <div className="mt-8 pt-4 border-t border-steel-200">
         <p className="text-xs text-steel-400 font-mono">
-          {t('config.lastUpdated')}: {new Date(displayConfig.updatedAt).toLocaleString()}
+          {t('config.lastUpdated')}: {new Date(displayConfig.updatedAt).toLocaleString(locale === 'fi' ? 'fi-FI' : 'en-GB')}
         </p>
       </div>
     </div>

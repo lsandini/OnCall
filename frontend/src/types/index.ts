@@ -15,7 +15,7 @@ export interface Worker {
   name: string;
   role: WorkerRole;
   type: WorkerType;
-  canDoubleSift: boolean;
+  canDoubleShift: boolean;
   yearOfStudy?: number;
   startDate?: string; // Employment start date (YYYY-MM-DD)
   endDate?: string; // Employment end date (YYYY-MM-DD), undefined = ongoing

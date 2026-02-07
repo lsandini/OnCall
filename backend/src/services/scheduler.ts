@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import {
   Worker,
   WeeklyAvailability,
@@ -10,7 +11,7 @@ import {
 } from '../types/index.js';
 
 function generateId(): string {
-  return Math.random().toString(36).substring(2, 11);
+  return randomUUID();
 }
 
 // Get ISO week number
@@ -196,7 +197,7 @@ export function generateMonthlySchedule(
           // unless they're external and can do double shifts
           if (position !== 'supervisor') {
             const hasOtherShift = isWorkerAssignedOnDate(w.id, dateStr, assignments);
-            if (hasOtherShift && !w.canDoubleSift) return false;
+            if (hasOtherShift && !w.canDoubleShift) return false;
           }
 
           // No consecutive weekends unless worker marked preferred
@@ -232,7 +233,7 @@ export function generateMonthlySchedule(
         });
 
         // Sort by score (descending), shuffling ties randomly
-        scoredWorkers.sort((a, b) => b.score - a.score || Math.random() - 0.5);
+        scoredWorkers.sort((a, b) => b.score - a.score || 0);
 
         const selected = scoredWorkers[0];
         if (selected && selected.score > -500) { // Don't assign if only unavailable workers
@@ -343,7 +344,7 @@ export function fillScheduleGaps(
 
           if (position !== 'supervisor') {
             const hasOtherShift = isWorkerAssignedOnDate(w.id, dateStr, allAssignments);
-            if (hasOtherShift && !w.canDoubleSift) return false;
+            if (hasOtherShift && !w.canDoubleShift) return false;
           }
 
           // No consecutive weekends unless worker marked preferred
@@ -372,7 +373,7 @@ export function fillScheduleGaps(
           return { worker: w, score };
         });
 
-        scoredWorkers.sort((a, b) => b.score - a.score || Math.random() - 0.5);
+        scoredWorkers.sort((a, b) => b.score - a.score || 0);
 
         const selected = scoredWorkers[0];
         if (selected && selected.score > -500) {

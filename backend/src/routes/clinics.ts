@@ -17,6 +17,9 @@ export function createClinicsRouter(clinicRepo: ClinicRepo) {
       return res.status(400).json({ error: 'Name is required' });
     }
     const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    if (!id) {
+      return res.status(400).json({ error: 'Name must contain at least one alphanumeric character' });
+    }
     const clinic: Clinic = {
       id,
       name,
@@ -24,8 +27,9 @@ export function createClinicsRouter(clinicRepo: ClinicRepo) {
     };
     try {
       clinicRepo.create(clinic);
-    } catch (e: any) {
-      if (e?.code === 'SQLITE_CONSTRAINT_PRIMARYKEY' || e?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    } catch (e: unknown) {
+      const code = e instanceof Error && 'code' in e ? (e as { code: string }).code : '';
+      if (code === 'SQLITE_CONSTRAINT_PRIMARYKEY' || code === 'SQLITE_CONSTRAINT_UNIQUE') {
         return res.status(409).json({ error: 'A clinic with this name already exists' });
       }
       throw e;
@@ -55,21 +59,13 @@ export function createClinicsRouter(clinicRepo: ClinicRepo) {
     res.json(clinicRepo.getStats(req.params.id as string));
   });
 
-  // DELETE clinic
+  // DELETE clinic (atomic check + delete)
   router.delete('/:id', (req: Request, res: Response) => {
-    const id = req.params.id as string;
-    const clinic = clinicRepo.getById(id);
-    if (!clinic) {
-      return res.status(404).json({ error: 'Clinic not found' });
+    const error = clinicRepo.safeDelete(req.params.id as string);
+    if (error) {
+      const status = error === 'Clinic not found' ? 404 : 400;
+      return res.status(status).json({ error });
     }
-    if (clinicRepo.count() <= 1) {
-      return res.status(400).json({ error: 'Cannot delete the last clinic' });
-    }
-    const stats = clinicRepo.getStats(id);
-    if (stats.workerCount > 0 || stats.configCount > 0 || stats.scheduleCount > 0) {
-      return res.status(400).json({ error: 'Clinic has data. Remove all workers, schedules, and configurations first.' });
-    }
-    clinicRepo.delete(id);
     res.status(204).send();
   });
 

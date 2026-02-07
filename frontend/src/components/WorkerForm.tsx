@@ -14,7 +14,7 @@ export default function WorkerForm({ worker, onClose, onSave, clinicId }: Props)
   const [name, setName] = useState(worker?.name || '');
   const [role, setRole] = useState<WorkerRole>(worker?.role || 'resident');
   const [type, setType] = useState<WorkerType>(worker?.type || 'permanent');
-  const [canDoubleSift, setCanDoubleSift] = useState(worker?.canDoubleSift || false);
+  const [canDoubleShift, setCanDoubleShift] = useState(worker?.canDoubleShift || false);
   const [yearOfStudy, setYearOfStudy] = useState(worker?.yearOfStudy || 4);
   const [startDate, setStartDate] = useState(worker?.startDate || '');
   const [endDate, setEndDate] = useState(worker?.endDate || '');
@@ -33,7 +33,7 @@ export default function WorkerForm({ worker, onClose, onSave, clinicId }: Props)
         name: name.trim(),
         role,
         type,
-        canDoubleSift: type === 'external' ? canDoubleSift : false,
+        canDoubleShift: type === 'external' ? canDoubleShift : false,
         yearOfStudy: role === 'student' ? yearOfStudy : undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined
@@ -133,8 +133,8 @@ export default function WorkerForm({ worker, onClose, onSave, clinicId }: Props)
               <input
                 type="checkbox"
                 id="canDouble"
-                checked={canDoubleSift}
-                onChange={(e) => setCanDoubleSift(e.target.checked)}
+                checked={canDoubleShift}
+                onChange={(e) => setCanDoubleShift(e.target.checked)}
                 className="w-5 h-5 border-2 border-steel-300 text-clinic-500 focus:ring-clinic-500"
               />
               <label htmlFor="canDouble" className="text-sm text-steel-700">

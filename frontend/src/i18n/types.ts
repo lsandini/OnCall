@@ -214,6 +214,9 @@ export interface Translations {
     namePlaceholder: string;
     customName: string;
     selectSpecialty: string;
+    failedCreate: string;
+    failedRename: string;
+    failedDelete: string;
   };
   specialties: {
     internalMedicine: string;

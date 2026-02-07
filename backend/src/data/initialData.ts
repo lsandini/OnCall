@@ -1,7 +1,8 @@
+import { randomUUID } from 'crypto';
 import { Worker, WeeklyAvailability, ShiftConfiguration, ShiftTypeDefinition, DailyShiftRequirement, LinePosition } from '../types/index.js';
 
 function generateId(): string {
-  return Math.random().toString(36).substring(2, 11);
+  return randomUUID();
 }
 
 // Generate initial workers
@@ -21,7 +22,7 @@ export function createInitialWorkers(clinicId: string): Worker[] {
       name,
       role: 'senior_specialist',
       type: 'permanent',
-      canDoubleSift: false,
+      canDoubleShift: false,
       active: true,
       clinicId,
       createdAt: new Date().toISOString()
@@ -40,7 +41,7 @@ export function createInitialWorkers(clinicId: string): Worker[] {
       name,
       role: 'resident',
       type: 'permanent',
-      canDoubleSift: false,
+      canDoubleShift: false,
       active: true,
       clinicId,
       createdAt: new Date().toISOString()
@@ -64,7 +65,7 @@ export function createInitialWorkers(clinicId: string): Worker[] {
       name,
       role: 'student',
       type: 'permanent',
-      canDoubleSift: false,
+      canDoubleShift: false,
       yearOfStudy: year,
       active: true,
       clinicId,
@@ -83,7 +84,7 @@ export function createInitialWorkers(clinicId: string): Worker[] {
       name,
       role,
       type: 'external',
-      canDoubleSift: true,
+      canDoubleShift: true,
       ...(year !== undefined && { yearOfStudy: year }),
       active: true,
       clinicId,
@@ -110,7 +111,7 @@ export function createSurgeryWorkers(clinicId: string): Worker[] {
       name,
       role: 'senior_specialist',
       type: 'permanent',
-      canDoubleSift: false,
+      canDoubleShift: false,
       active: true,
       clinicId,
       createdAt: new Date().toISOString()
@@ -128,7 +129,7 @@ export function createSurgeryWorkers(clinicId: string): Worker[] {
       name,
       role: 'resident',
       type: 'permanent',
-      canDoubleSift: false,
+      canDoubleShift: false,
       active: true,
       clinicId,
       createdAt: new Date().toISOString()
@@ -150,7 +151,7 @@ export function createSurgeryWorkers(clinicId: string): Worker[] {
       name,
       role: 'student',
       type: 'permanent',
-      canDoubleSift: false,
+      canDoubleShift: false,
       yearOfStudy: year,
       active: true,
       clinicId,
@@ -169,7 +170,7 @@ export function createSurgeryWorkers(clinicId: string): Worker[] {
       name,
       role,
       type: 'external',
-      canDoubleSift: true,
+      canDoubleShift: true,
       ...(year !== undefined && { yearOfStudy: year }),
       active: true,
       clinicId,

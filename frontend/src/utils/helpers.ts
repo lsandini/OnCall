@@ -132,6 +132,19 @@ export function formatDate(dateStr: string, locale?: Locale): string {
   return date.toLocaleDateString(loc, { day: '2-digit', month: 'short' });
 }
 
+export function formatDateFull(dateStr: string | undefined, locale?: Locale): string {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  const loc = locale === 'fi' ? 'fi-FI' : 'en-GB';
+  return date.toLocaleDateString(loc, { day: 'numeric', month: 'numeric', year: 'numeric' });
+}
+
+export function formatDateTime(dateStr: string, locale?: Locale): string {
+  const date = new Date(dateStr);
+  const loc = locale === 'fi' ? 'fi-FI' : 'en-GB';
+  return date.toLocaleString(loc);
+}
+
 export function getDayOfWeek(dateStr: string): number {
   return new Date(dateStr).getDay();
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Clinic } from '../types';
 import { useApi } from '../hooks/useApi';
 import { useTranslation } from '../i18n';
-import { getClinicDisplayName, getSpecialtyKey } from '../utils/helpers';
+import { getClinicDisplayName, getSpecialtyKey, formatDateFull } from '../utils/helpers';
 
 interface Props {
   clinics: Clinic[];
@@ -31,7 +31,7 @@ export default function AdminTab({ clinics, onClinicsChange, onSelectClinic }: P
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const api = useApi();
-  const { t, translations } = useTranslation();
+  const { t, locale, translations } = useTranslation();
 
   // Which specialty keys are already used by existing clinics
   const usedSpecialties = useMemo(() => {
@@ -64,7 +64,7 @@ export default function AdminTab({ clinics, onClinicsChange, onSelectClinic }: P
       setSelectedSpecialty('');
       onClinicsChange();
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Failed to create clinic');
+      setErrorMsg(e instanceof Error ? e.message : t('clinic.failedCreate'));
     } finally {
       setCreating(false);
     }
@@ -78,7 +78,7 @@ export default function AdminTab({ clinics, onClinicsChange, onSelectClinic }: P
       setRenamingId(null);
       onClinicsChange();
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Failed to rename clinic');
+      setErrorMsg(e instanceof Error ? e.message : t('clinic.failedRename'));
     }
   };
 
@@ -89,13 +89,8 @@ export default function AdminTab({ clinics, onClinicsChange, onSelectClinic }: P
       await api.deleteClinic(id);
       onClinicsChange();
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Failed to delete clinic');
+      setErrorMsg(e instanceof Error ? e.message : t('clinic.failedDelete'));
     }
-  };
-
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
   return (
@@ -200,7 +195,7 @@ export default function AdminTab({ clinics, onClinicsChange, onSelectClinic }: P
                     {s ? s.scheduleCount : '-'}
                   </td>
                   <td className="px-4 py-3 text-steel-500 text-xs font-mono">
-                    {formatDate(clinic.createdAt)}
+                    {formatDateFull(clinic.createdAt, locale)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">

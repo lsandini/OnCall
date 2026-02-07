@@ -34,6 +34,9 @@ export function createSchedulesRouter(
     }
     const year = parseInt(req.params.year as string);
     const month = parseInt(req.params.month as string);
+    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: 'Invalid year or month' });
+    }
     const schedule = scheduleRepo.getByMonth(clinicId, year, month);
 
     if (!schedule) {
@@ -46,8 +49,11 @@ export function createSchedulesRouter(
   router.post('/generate', (req: Request, res: Response) => {
     const { clinicId, year, month } = req.body;
 
-    if (!clinicId || !year || !month) {
+    if (!clinicId || year == null || month == null) {
       return res.status(400).json({ error: 'clinicId, year and month are required' });
+    }
+    if (typeof year !== 'number' || typeof month !== 'number' || month < 1 || month > 12) {
+      return res.status(400).json({ error: 'Invalid year or month' });
     }
 
     // Pre-fetch arrays for the scheduler (pure function)
@@ -80,8 +86,11 @@ export function createSchedulesRouter(
   router.post('/fill-gaps', (req: Request, res: Response) => {
     const { clinicId, year, month } = req.body;
 
-    if (!clinicId || !year || !month) {
+    if (!clinicId || year == null || month == null) {
       return res.status(400).json({ error: 'clinicId, year and month are required' });
+    }
+    if (typeof year !== 'number' || typeof month !== 'number' || month < 1 || month > 12) {
+      return res.status(400).json({ error: 'Invalid year or month' });
     }
 
     const existing = scheduleRepo.getByMonth(clinicId, year, month);
@@ -126,12 +135,24 @@ export function createSchedulesRouter(
     }
     const year = parseInt(req.params.year as string);
     const month = parseInt(req.params.month as string);
+    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: 'Invalid year or month' });
+    }
     const assignmentId = req.params.assignmentId as string;
     const { workerId } = req.body;
+    if (!workerId || typeof workerId !== 'string') {
+      return res.status(400).json({ error: 'workerId is required' });
+    }
 
     const schedule = scheduleRepo.getByMonth(clinicId, year, month);
     if (!schedule) {
       return res.status(404).json({ error: 'Schedule not found' });
+    }
+
+    // Verify the assignment belongs to this clinic's schedule
+    const assignmentBelongs = schedule.assignments.some(a => a.id === assignmentId);
+    if (!assignmentBelongs) {
+      return res.status(404).json({ error: 'Assignment not found in this schedule' });
     }
 
     const updated = scheduleRepo.updateAssignment(assignmentId, workerId);
@@ -150,7 +171,13 @@ export function createSchedulesRouter(
     }
     const year = parseInt(req.params.year as string);
     const month = parseInt(req.params.month as string);
-    scheduleRepo.deleteByMonth(clinicId, year, month);
+    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: 'Invalid year or month' });
+    }
+    const deleted = scheduleRepo.deleteByMonth(clinicId, year, month);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Schedule not found' });
+    }
     res.status(204).send();
   });
 

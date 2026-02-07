@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { ShiftConfiguration } from '../types/index.js';
+import { ShiftConfiguration, LinePosition } from '../types/index.js';
 import { ConfigRepo } from '../repositories/configRepo.js';
 import { HolidayRepo } from '../repositories/holidayRepo.js';
 import { SettingsRepo } from '../repositories/settingsRepo.js';
@@ -58,11 +58,18 @@ export function createConfigRouter(
   router.put('/settings', (req: Request, res: Response) => {
     const { country, region, language } = req.body;
 
-    if (language && ['en', 'fi'].includes(language)) {
+    if (language) {
+      if (!['en', 'fi'].includes(language)) {
+        return res.status(400).json({ error: 'language must be one of: en, fi' });
+      }
       settingsRepo.set('language', language);
     }
 
     if (country) {
+      const validCodes = getSupportedCountries().map(c => c.code);
+      if (!validCodes.includes(country)) {
+        return res.status(400).json({ error: `country must be one of: ${validCodes.join(', ')}` });
+      }
       const oldCountry = settingsRepo.get('country');
       const oldRegion = settingsRepo.get('region') || '';
       const newRegion = region || '';
@@ -93,6 +100,9 @@ export function createConfigRouter(
     if (!date || !name) {
       return res.status(400).json({ error: 'Date and name are required' });
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date).getTime())) {
+      return res.status(400).json({ error: 'Date must be in YYYY-MM-DD format' });
+    }
     const country = settingsRepo.get('country') || 'FI';
     const holiday = holidayRepo.add(date, name, 'custom', country);
     res.status(201).json(holiday);
@@ -116,6 +126,37 @@ export function createConfigRouter(
     const existing = configRepo.getById(id);
     if (!existing) {
       return res.status(404).json({ error: 'Configuration not found' });
+    }
+
+    // Validate shiftTypes array if provided
+    if (updates.shiftTypes !== undefined) {
+      if (!Array.isArray(updates.shiftTypes)) {
+        return res.status(400).json({ error: 'shiftTypes must be an array' });
+      }
+      for (const st of updates.shiftTypes) {
+        if (!st.id || !st.name || !st.startTime || !st.endTime || typeof st.crossesMidnight !== 'boolean') {
+          return res.status(400).json({ error: 'Each shiftType must have id, name, startTime, endTime, and crossesMidnight' });
+        }
+      }
+    }
+
+    // Validate dailyRequirements array if provided
+    const validPositions: LinePosition[] = ['supervisor', 'first_line', 'second_line', 'third_line'];
+    if (updates.dailyRequirements !== undefined) {
+      if (!Array.isArray(updates.dailyRequirements)) {
+        return res.status(400).json({ error: 'dailyRequirements must be an array' });
+      }
+      for (const dr of updates.dailyRequirements) {
+        if (typeof dr.dayOfWeek !== 'number' || dr.dayOfWeek < 0 || dr.dayOfWeek > 6) {
+          return res.status(400).json({ error: 'Each dailyRequirement must have dayOfWeek (0-6)' });
+        }
+        if (!dr.shiftTypeId || typeof dr.shiftTypeId !== 'string') {
+          return res.status(400).json({ error: 'Each dailyRequirement must have a shiftTypeId' });
+        }
+        if (!Array.isArray(dr.positions) || !dr.positions.every((p: string) => validPositions.includes(p as LinePosition))) {
+          return res.status(400).json({ error: `positions must be an array of: ${validPositions.join(', ')}` });
+        }
+      }
     }
 
     const merged: ShiftConfiguration = {

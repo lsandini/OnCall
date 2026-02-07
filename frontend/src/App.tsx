@@ -14,8 +14,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('workers');
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [schedules, setSchedules] = useState<MonthlySchedule[]>([]);
-  const [selectedYear, setSelectedYear] = useState(2026);
-  const [selectedMonth, setSelectedMonth] = useState(1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [selectedClinicId, setSelectedClinicId] = useState<string>(() =>
     localStorage.getItem('selectedClinicId') || ''
@@ -23,6 +23,7 @@ export default function App() {
   const [adminMode, setAdminMode] = useState(() =>
     localStorage.getItem('adminMode') === 'true'
   );
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const api = useApi();
   const { t, locale, setLocale, translations } = useTranslation();
@@ -32,10 +33,14 @@ export default function App() {
   useEffect(() => {
     api.getClinics().then(data => {
       setClinics(data);
+      setLoadError(null);
       if (!selectedClinicId && data.length > 0) {
         setSelectedClinicId(data[0].id);
       }
-    }).catch(e => console.error('Failed to load clinics', e));
+    }).catch(e => {
+      console.error('Failed to load clinics', e);
+      setLoadError(e instanceof Error ? e.message : 'Failed to connect to server');
+    });
   }, []);
 
   // Persist clinic selection
@@ -58,8 +63,10 @@ export default function App() {
     try {
       const data = await api.getWorkers(selectedClinicId);
       setWorkers(data);
+      setLoadError(null);
     } catch (e) {
       console.error('Failed to load workers', e);
+      setLoadError(e instanceof Error ? e.message : 'Failed to load workers');
     }
   };
 
@@ -70,6 +77,7 @@ export default function App() {
       setSchedules(data);
     } catch (e) {
       console.error('Failed to load schedules', e);
+      setLoadError(e instanceof Error ? e.message : 'Failed to load schedules');
     }
   };
 
@@ -266,6 +274,16 @@ export default function App() {
           </div>
         </div>
       </nav>
+
+      {/* Error Banner */}
+      {loadError && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="px-4 py-2 bg-clay-50 border-2 border-clay-200 text-clay-700 text-sm flex items-center justify-between">
+            <span>{loadError}</span>
+            <button onClick={() => setLoadError(null)} className="text-clay-500 hover:text-clay-700 font-bold ml-4">&times;</button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

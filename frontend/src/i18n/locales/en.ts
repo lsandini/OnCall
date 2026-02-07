@@ -214,6 +214,9 @@ export const en: Translations = {
     namePlaceholder: 'e.g. Cardiology',
     customName: 'Custom name',
     selectSpecialty: 'Select specialty...',
+    failedCreate: 'Failed to create clinic',
+    failedRename: 'Failed to rename clinic',
+    failedDelete: 'Failed to delete clinic',
   },
   specialties: {
     internalMedicine: 'Internal Medicine',

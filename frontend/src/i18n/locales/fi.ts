@@ -214,6 +214,9 @@ export const fi: Translations = {
     namePlaceholder: 'esim. Kardiologia',
     customName: 'Oma nimi',
     selectSpecialty: 'Valitse erikoisala...',
+    failedCreate: 'Klinikan luominen epäonnistui',
+    failedRename: 'Klinikan nimeäminen epäonnistui',
+    failedDelete: 'Klinikan poistaminen epäonnistui',
   },
   specialties: {
     internalMedicine: 'Sisätaudit',
