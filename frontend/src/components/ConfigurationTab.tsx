@@ -1,14 +1,9 @@
 import { useState, useEffect } from 'react';
 import { ShiftConfiguration, ShiftTypeDefinition, LinePosition, Holiday } from '../types';
 import { useApi } from '../hooks/useApi';
+import { getPositionLabels, getDayNamesFull, getShiftName, getConfigName, getConfigDescription } from '../utils/helpers';
+import { useTranslation } from '../i18n';
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const POSITION_LABELS: Record<LinePosition, string> = {
-  supervisor: 'Supervisor',
-  first_line: '1st Line',
-  second_line: '2nd Line',
-  third_line: '3rd Line'
-};
 const ALL_POSITIONS: LinePosition[] = ['supervisor', 'first_line', 'second_line', 'third_line'];
 
 interface Props {
@@ -37,6 +32,9 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
   const [addingHoliday, setAddingHoliday] = useState(false);
 
   const api = useApi();
+  const { t, translations } = useTranslation();
+  const positionLabels = getPositionLabels(translations);
+  const dayNames = getDayNamesFull(translations);
 
   useEffect(() => {
     loadConfiguration();
@@ -57,7 +55,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
       setConfiguration(config);
       setEditedConfig(JSON.parse(JSON.stringify(config)));
     } catch (e) {
-      setError('Failed to load configuration');
+      setError(t('config.failedLoadConfig'));
       console.error(e);
     } finally {
       setLoading(false);
@@ -171,7 +169,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
       setEditMode(false);
       onConfigChange?.();
     } catch (e) {
-      setError('Failed to save configuration');
+      setError(t('config.failedSaveConfig'));
       console.error(e);
     } finally {
       setSaving(false);
@@ -233,7 +231,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-steel-500">Loading configuration...</div>
+        <div className="text-steel-500">{t('config.loadingConfig')}</div>
       </div>
     );
   }
@@ -256,13 +254,13 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
       {/* Region & Holidays Section */}
       <div className="mb-8">
         <h3 className="text-sm font-bold text-steel-700 uppercase tracking-wider mb-4">
-          Region & Holidays
+          {t('config.regionAndHolidays')}
         </h3>
 
         <div className="card-sharp p-4 mb-4">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex-1 min-w-[200px]">
-              <label className="block text-xs font-semibold text-steel-600 uppercase mb-1">Country</label>
+              <label className="block text-xs font-semibold text-steel-600 uppercase mb-1">{t('config.country')}</label>
               <select
                 value={selectedCountry}
                 onChange={(e) => handleCountryChange(e.target.value)}
@@ -276,13 +274,13 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
 
             {states.length > 0 && (
               <div className="flex-1 min-w-[200px]">
-                <label className="block text-xs font-semibold text-steel-600 uppercase mb-1">State / Region</label>
+                <label className="block text-xs font-semibold text-steel-600 uppercase mb-1">{t('config.stateRegion')}</label>
                 <select
                   value={selectedRegion}
                   onChange={(e) => setSelectedRegion(e.target.value)}
                   className="w-full border-2 border-steel-200 px-3 py-2 text-sm focus:outline-none focus:border-clinic-500"
                 >
-                  <option value="">All / Default</option>
+                  <option value="">{t('config.allDefault')}</option>
                   {states.map(s => (
                     <option key={s.code} value={s.code}>{s.name} ({s.code})</option>
                   ))}
@@ -295,7 +293,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
               disabled={savingSettings || (selectedCountry === settings.country && selectedRegion === (settings.region || ''))}
               className="px-4 py-2 text-sm font-semibold text-white bg-clinic-500 hover:bg-clinic-600 transition-colors shadow-sharp disabled:opacity-50"
             >
-              {savingSettings ? 'Saving...' : 'Save Country'}
+              {savingSettings ? t('common.saving') : t('config.saveCountry')}
             </button>
           </div>
         </div>
@@ -304,7 +302,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
         <div className="card-sharp p-4">
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-semibold text-steel-900">
-              Holidays — {countryName} ({holidayYear})
+              {t('config.holidays')} — {countryName} ({holidayYear})
             </h4>
             <div className="flex items-center gap-2">
               <button
@@ -324,7 +322,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
           </div>
 
           {holidays.length === 0 ? (
-            <p className="text-sm text-steel-400 italic">No holidays for this year</p>
+            <p className="text-sm text-steel-400 italic">{t('config.noHolidays')}</p>
           ) : (
             <div className="space-y-1 max-h-64 overflow-y-auto mb-4">
               {holidays.map(h => (
@@ -337,13 +335,13 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
                         ? 'bg-steel-100 text-steel-700 border border-steel-200'
                         : 'bg-clinic-50 text-clinic-700 border border-clinic-200'
                     }`}>
-                      {h.type}
+                      {h.type === 'custom' ? t('config.custom') : t('config.public')}
                     </span>
                   </div>
                   <button
                     onClick={() => handleRemoveHoliday(h.date)}
                     className="text-steel-400 hover:text-clay-500 opacity-0 group-hover:opacity-100 transition-opacity text-lg leading-none"
-                    title="Remove holiday"
+                    title={t('config.removeHoliday')}
                   >
                     &times;
                   </button>
@@ -355,7 +353,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
           {/* Add custom holiday */}
           <div className="flex items-end gap-3 pt-3 border-t border-steel-200">
             <div>
-              <label className="block text-xs font-semibold text-steel-600 uppercase mb-1">Date</label>
+              <label className="block text-xs font-semibold text-steel-600 uppercase mb-1">{t('config.holidayDate')}</label>
               <input
                 type="date"
                 value={newHolidayDate}
@@ -364,12 +362,12 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
               />
             </div>
             <div className="flex-1">
-              <label className="block text-xs font-semibold text-steel-600 uppercase mb-1">Name</label>
+              <label className="block text-xs font-semibold text-steel-600 uppercase mb-1">{t('config.holidayName')}</label>
               <input
                 type="text"
                 value={newHolidayName}
                 onChange={(e) => setNewHolidayName(e.target.value)}
-                placeholder="Holiday name"
+                placeholder={t('config.holidayPlaceholder')}
                 className="w-full border-2 border-steel-200 px-3 py-1.5 text-sm focus:outline-none focus:border-clinic-500"
               />
             </div>
@@ -378,7 +376,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
               disabled={addingHoliday || !newHolidayDate || !newHolidayName}
               className="px-4 py-1.5 text-sm font-semibold text-white bg-clinic-500 hover:bg-clinic-600 transition-colors shadow-sharp disabled:opacity-50"
             >
-              {addingHoliday ? 'Adding...' : 'Add Holiday'}
+              {addingHoliday ? t('config.adding') : t('config.addHoliday')}
             </button>
           </div>
         </div>
@@ -387,9 +385,9 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold text-steel-900">{displayConfig.name}</h2>
+          <h2 className="text-xl font-bold text-steel-900">{getConfigName(displayConfig.name, translations)}</h2>
           {displayConfig.description && (
-            <p className="text-sm text-steel-500 mt-1">{displayConfig.description}</p>
+            <p className="text-sm text-steel-500 mt-1">{getConfigDescription(displayConfig.description, translations)}</p>
           )}
         </div>
         <div className="flex gap-2">
@@ -400,14 +398,14 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
                 disabled={saving}
                 className="px-4 py-2 text-sm font-semibold text-steel-600 bg-white border-2 border-steel-200 hover:bg-steel-50 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
                 className="px-4 py-2 text-sm font-semibold text-white bg-clinic-500 hover:bg-clinic-600 transition-colors shadow-sharp disabled:opacity-50"
               >
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? t('common.saving') : t('config.saveChanges')}
               </button>
             </>
           ) : (
@@ -415,7 +413,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
               onClick={handleEdit}
               className="px-4 py-2 text-sm font-semibold text-white bg-clinic-500 hover:bg-clinic-600 transition-colors shadow-sharp"
             >
-              Edit Configuration
+              {t('config.editConfiguration')}
             </button>
           )}
         </div>
@@ -430,7 +428,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
       {/* Shift Types Section */}
       <div className="mb-8">
         <h3 className="text-sm font-bold text-steel-700 uppercase tracking-wider mb-4">
-          Shift Types
+          {t('config.shiftTypes')}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {displayConfig.shiftTypes.map((st, index) => (
@@ -441,11 +439,11 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
                   st.id === 'evening' ? 'bg-clinic-400' :
                   'bg-steel-500'
                 }`}></div>
-                <h4 className="font-semibold text-steel-900">{st.name}</h4>
+                <h4 className="font-semibold text-steel-900">{getShiftName(st.id, st.name, translations)}</h4>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-steel-500 w-16">Start:</label>
+                  <label className="text-xs text-steel-500 w-16">{t('config.startTime')}:</label>
                   {editMode ? (
                     <input
                       type="time"
@@ -458,7 +456,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-steel-500 w-16">End:</label>
+                  <label className="text-xs text-steel-500 w-16">{t('config.endTime')}:</label>
                   {editMode ? (
                     <input
                       type="time"
@@ -471,7 +469,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
                   )}
                 </div>
                 {st.crossesMidnight && (
-                  <div className="text-xs text-steel-400 italic">Crosses midnight</div>
+                  <div className="text-xs text-steel-400 italic">{t('config.crossesMidnight')}</div>
                 )}
               </div>
             </div>
@@ -482,14 +480,14 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
       {/* Daily Requirements Matrix */}
       <div>
         <h3 className="text-sm font-bold text-steel-700 uppercase tracking-wider mb-4">
-          Daily Position Requirements
+          {t('config.dailyPositionRequirements')}
         </h3>
         <div className="card-sharp overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-steel-50">
                 <th className="p-3 text-left font-semibold text-steel-700 border-b border-steel-200">
-                  Day / Shift
+                  {t('config.dayShift')}
                 </th>
                 {displayConfig.shiftTypes.map(st => (
                   <th
@@ -503,7 +501,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
                         st.id === 'evening' ? 'bg-clinic-400' :
                         'bg-steel-500'
                       }`}></div>
-                      {st.name}
+                      {getShiftName(st.id, st.name, translations)}
                     </div>
                     <div className="text-xs font-normal text-steel-400 mt-1">
                       {st.startTime} - {st.endTime}
@@ -519,24 +517,25 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
                       key={`${st.id}-${pos}`}
                       className={`p-2 text-center text-xs font-medium text-steel-500 border-b border-steel-200 ${i === 0 ? 'border-l' : ''}`}
                     >
-                      {POSITION_LABELS[pos]}
+                      {positionLabels[pos]}
                     </th>
                   ))
                 ))}
               </tr>
             </thead>
             <tbody>
-              {DAY_NAMES.map((dayName, dayIndex) => (
-                <tr key={dayIndex} className={dayIndex % 2 === 0 ? 'bg-white' : 'bg-steel-50/30'}>
+              {/* Monday-first order: dayOfWeek 1,2,3,4,5,6,0 */}
+              {[1, 2, 3, 4, 5, 6, 0].map((dayOfWeek, rowIndex) => (
+                <tr key={dayOfWeek} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-steel-50/30'}>
                   <td className="p-3 font-medium text-steel-700 border-b border-steel-100">
-                    {dayName}
+                    {dayNames[dayOfWeek]}
                     <span className="text-xs text-steel-400 ml-2">
-                      {dayIndex === 0 || dayIndex === 6 ? '(Weekend)' : ''}
+                      {dayOfWeek === 0 || dayOfWeek === 6 ? `(${t('common.weekend')})` : ''}
                     </span>
                   </td>
                   {displayConfig.shiftTypes.map(st => (
                     ALL_POSITIONS.map((pos, i) => {
-                      const isActive = hasPosition(dayIndex, st.id, pos);
+                      const isActive = hasPosition(dayOfWeek, st.id, pos);
                       return (
                         <td
                           key={`${st.id}-${pos}`}
@@ -544,7 +543,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
                         >
                           {editMode ? (
                             <button
-                              onClick={() => togglePosition(dayIndex, st.id, pos)}
+                              onClick={() => togglePosition(dayOfWeek, st.id, pos)}
                               className={`w-8 h-8 rounded flex items-center justify-center transition-colors ${
                                 isActive
                                   ? 'bg-clinic-500 text-white hover:bg-clinic-600'
@@ -575,11 +574,11 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
         <div className="mt-4 flex gap-4 text-xs text-steel-500">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-clinic-100 text-clinic-700 rounded flex items-center justify-center">+</div>
-            <span>Position required</span>
+            <span>{t('config.positionRequired')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-steel-50 text-steel-300 rounded flex items-center justify-center">-</div>
-            <span>Position not required</span>
+            <span>{t('config.positionNotRequired')}</span>
           </div>
         </div>
       </div>
@@ -587,7 +586,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
       {/* Last Updated */}
       <div className="mt-8 pt-4 border-t border-steel-200">
         <p className="text-xs text-steel-400 font-mono">
-          Last updated: {new Date(displayConfig.updatedAt).toLocaleString()}
+          {t('config.lastUpdated')}: {new Date(displayConfig.updatedAt).toLocaleString()}
         </p>
       </div>
     </div>

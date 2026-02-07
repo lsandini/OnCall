@@ -1,5 +1,71 @@
 import { WorkerRole, LinePosition, ShiftType } from '../types';
+import type { Locale, Translations } from '../i18n';
 
+// Locale-aware label functions
+export function getRoleLabels(translations: Translations): Record<WorkerRole, string> {
+  return {
+    senior_specialist: translations.roles.seniorSpecialist,
+    resident: translations.roles.resident,
+    student: translations.roles.student,
+  };
+}
+
+export function getPositionLabels(translations: Translations): Record<LinePosition, string> {
+  return {
+    supervisor: translations.positions.supervisor,
+    first_line: translations.positions.firstLine,
+    second_line: translations.positions.secondLine,
+    third_line: translations.positions.thirdLine,
+  };
+}
+
+export function getMonthNames(translations: Translations): string[] {
+  const m = translations.months;
+  return [m.january, m.february, m.march, m.april, m.may, m.june,
+    m.july, m.august, m.september, m.october, m.november, m.december];
+}
+
+export function getDayNames(translations: Translations): string[] {
+  const d = translations.daysShort;
+  return [d.sun, d.mon, d.tue, d.wed, d.thu, d.fri, d.sat];
+}
+
+export function getDayNamesFull(translations: Translations): string[] {
+  const d = translations.days;
+  return [d.sunday, d.monday, d.tuesday, d.wednesday, d.thursday, d.friday, d.saturday];
+}
+
+// Translate known shift type IDs, falling back to the DB name for custom types
+const SHIFT_NAME_KEYS: Record<string, keyof Translations['shifts']> = {
+  day: 'day',
+  evening: 'evening',
+  night: 'night',
+};
+
+export function getShiftName(shiftId: string, dbName: string, translations: Translations): string {
+  const key = SHIFT_NAME_KEYS[shiftId];
+  return key ? translations.shifts[key] : dbName;
+}
+
+// Translate known config names, falling back to DB value for custom configs
+const KNOWN_CONFIG_NAMES: Record<string, keyof Pick<Translations['config'], 'configName'>> = {
+  'Internal Medicine': 'configName',
+};
+const KNOWN_CONFIG_DESCS: Record<string, keyof Pick<Translations['config'], 'configDescription'>> = {
+  'Default shift configuration for Internal Medicine clinic': 'configDescription',
+};
+
+export function getConfigName(dbName: string, translations: Translations): string {
+  const key = KNOWN_CONFIG_NAMES[dbName];
+  return key ? translations.config[key] : dbName;
+}
+
+export function getConfigDescription(dbDesc: string, translations: Translations): string {
+  const key = KNOWN_CONFIG_DESCS[dbDesc];
+  return key ? translations.config[key] : dbDesc;
+}
+
+// Backward-compat constants (English defaults)
 export const ROLE_LABELS: Record<WorkerRole, string> = {
   senior_specialist: 'Senior Specialist',
   resident: 'Resident',
@@ -40,9 +106,10 @@ export const MONTH_NAMES = [
 export const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export function formatDate(dateStr: string): string {
+export function formatDate(dateStr: string, locale?: Locale): string {
   const date = new Date(dateStr);
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  const loc = locale === 'fi' ? 'fi-FI' : 'en-GB';
+  return date.toLocaleDateString(loc, { day: '2-digit', month: 'short' });
 }
 
 export function getDayOfWeek(dateStr: string): number {

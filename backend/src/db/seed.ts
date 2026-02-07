@@ -30,4 +30,9 @@ export function seedIfEmpty(db: Database.Database): void {
     populateHolidays('FI', undefined, [currentYear, currentYear + 1], holidayRepo);
     console.log(`Seeded default settings (country=FI) and holidays for ${currentYear}-${currentYear + 1}`);
   }
+
+  if (!settingsRepo.get('language')) {
+    settingsRepo.set('language', 'en');
+    console.log('Seeded default language setting (en)');
+  }
 }

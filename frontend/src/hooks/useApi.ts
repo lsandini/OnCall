@@ -102,7 +102,7 @@ export function useApi() {
   const getSettings = useCallback(() =>
     fetchJson<Record<string, string>>('/config/settings'), [fetchJson]);
 
-  const updateSettings = useCallback((settings: { country: string; region?: string }) =>
+  const updateSettings = useCallback((settings: { country?: string; region?: string; language?: string }) =>
     fetchJson<Record<string, string>>('/config/settings', {
       method: 'PUT',
       body: JSON.stringify(settings)

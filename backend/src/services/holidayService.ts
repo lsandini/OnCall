@@ -3,9 +3,19 @@ import { HolidayRepo } from '../repositories/holidayRepo.js';
 
 const hd = new Holidays();
 
+const CURATED_COUNTRIES: { code: string; name: string }[] = [
+  { code: 'FI', name: 'Finland' },
+  { code: 'SE', name: 'Sweden' },
+  { code: 'NO', name: 'Norway' },
+  { code: 'DK', name: 'Denmark' },
+  { code: 'EE', name: 'Estonia' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'NL', name: 'Netherlands' },
+];
+
 export function getSupportedCountries(): { code: string; name: string }[] {
-  const countries = hd.getCountries();
-  return Object.entries(countries).map(([code, name]) => ({ code, name }));
+  return CURATED_COUNTRIES;
 }
 
 export function getSupportedStates(country: string): { code: string; name: string }[] | null {

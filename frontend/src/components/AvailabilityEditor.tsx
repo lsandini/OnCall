@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Worker, WeeklyAvailability, ShiftType, AvailabilityStatus } from '../types';
 import { useApi } from '../hooks/useApi';
-import { MONTH_NAMES } from '../utils/helpers';
+import { getMonthNames, getDayNames } from '../utils/helpers';
+import { useTranslation } from '../i18n';
 
 interface Props {
   worker: Worker;
@@ -15,8 +16,6 @@ const STATUS_COLORS: Record<AvailabilityStatus | 'default', string> = {
   preferred: 'bg-clinic-100 border-clinic-400 hover:bg-clinic-200',
   unavailable: 'bg-clay-100 border-clay-400 hover:bg-clay-200'
 };
-
-const DAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 // Get ISO week number for a date
 function getWeekNumber(date: Date): number {
@@ -41,6 +40,11 @@ export default function AvailabilityEditor({ worker, year, onClose }: Props) {
   const [saving, setSaving] = useState(false);
 
   const api = useApi();
+  const { t, translations } = useTranslation();
+  const monthNames = getMonthNames(translations);
+  const dayHeaders = getDayNames(translations);
+  // Reorder: Mon-Sun (dayNames is Sun-first, we need Mon-first)
+  const monFirstDayHeaders = [...dayHeaders.slice(1), dayHeaders[0]];
 
   useEffect(() => {
     loadAvailability();
@@ -153,7 +157,7 @@ export default function AvailabilityEditor({ worker, year, onClose }: Props) {
       <div className="bg-white border-2 border-steel-200 shadow-sharp-lg w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-steel-200">
           <div>
-            <h2 className="text-lg font-bold text-steel-900">Availability Calendar</h2>
+            <h2 className="text-lg font-bold text-steel-900">{t('availability.title')}</h2>
             <p className="text-sm text-steel-500 font-mono">{worker.name}</p>
           </div>
           <button
@@ -175,7 +179,7 @@ export default function AvailabilityEditor({ worker, year, onClose }: Props) {
               &larr;
             </button>
             <h3 className="text-xl font-bold text-steel-900">
-              {MONTH_NAMES[currentMonth - 1]} {year}
+              {monthNames[currentMonth - 1]} {year}
             </h3>
             <button
               onClick={() => setCurrentMonth(m => Math.min(12, m + 1))}
@@ -190,23 +194,23 @@ export default function AvailabilityEditor({ worker, year, onClose }: Props) {
           <div className="flex items-center justify-center gap-4 mb-4 text-xs">
             <div className="flex items-center gap-1">
               <div className="w-4 h-4 border rounded bg-white border-steel-200" />
-              <span className="text-steel-500">Default</span>
+              <span className="text-steel-500">{t('common.default')}</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-4 h-4 border rounded bg-clinic-100 border-clinic-400" />
-              <span className="text-steel-500">Preferred</span>
+              <span className="text-steel-500">{t('availability.preferred')}</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-4 h-4 border rounded bg-clay-100 border-clay-400" />
-              <span className="text-steel-500">Unavailable</span>
+              <span className="text-steel-500">{t('availability.unavailable')}</span>
             </div>
           </div>
 
           {/* Calendar grid */}
           <div className="grid grid-cols-7 gap-1 max-w-md mx-auto">
             {/* Day headers */}
-            {DAY_HEADERS.map(day => (
-              <div key={day} className="text-center text-xs font-semibold text-steel-500 uppercase py-1">
+            {monFirstDayHeaders.map((day, i) => (
+              <div key={i} className="text-center text-xs font-semibold text-steel-500 uppercase py-1">
                 {day}
               </div>
             ))}
@@ -240,13 +244,13 @@ export default function AvailabilityEditor({ worker, year, onClose }: Props) {
 
         <div className="px-4 py-3 border-t border-steel-200 bg-steel-50 flex justify-between items-center">
           <span className="text-xs text-steel-400">
-            {saving ? 'Saving...' : 'Click to cycle status'}
+            {saving ? t('common.saving') : t('availability.clickToCycle')}
           </span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 bg-clinic-500 text-white text-sm font-semibold hover:bg-clinic-600 transition-colors"
           >
-            Done
+            {t('common.done')}
           </button>
         </div>
       </div>

@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Worker, WorkerRole, WorkerType } from '../types';
 import { useApi } from '../hooks/useApi';
-import { ROLE_LABELS, MONTH_NAMES } from '../utils/helpers';
+import { getRoleLabels, getMonthNames } from '../utils/helpers';
+import { useTranslation } from '../i18n';
 import WorkerForm from './WorkerForm';
 import AvailabilityEditor from './AvailabilityEditor';
 
@@ -43,6 +44,9 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
   const [typeFilter, setTypeFilter] = useState<WorkerType | 'all'>('all');
 
   const api = useApi();
+  const { t, translations } = useTranslation();
+  const monthNames = getMonthNames(translations);
+  const roleLabels = getRoleLabels(translations);
 
   // Filter workers by role/type and active in current month
   const filteredWorkers = useMemo(() => {
@@ -65,12 +69,12 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
   };
 
   const handleDelete = async (worker: Worker) => {
-    if (!confirm(`Deactivate ${worker.name}?`)) return;
+    if (!confirm(`${t('workers.deactivateConfirm')} ${worker.name}?`)) return;
     try {
       await api.deleteWorker(worker.id);
       onWorkersChange();
     } catch (e) {
-      alert('Failed to delete worker');
+      alert(t('workers.failedDelete'));
     }
   };
 
@@ -90,16 +94,16 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
         <div className="font-medium text-steel-900">{worker.name}</div>
       </td>
       <td className="py-3 px-4">
-        <span className="text-xs font-mono text-steel-600 uppercase">{ROLE_LABELS[worker.role]}</span>
+        <span className="text-xs font-mono text-steel-600 uppercase">{roleLabels[worker.role]}</span>
         {worker.yearOfStudy && (
           <span className="text-xs text-steel-400 ml-1">Y{worker.yearOfStudy}</span>
         )}
       </td>
       <td className="py-3 px-4">
         {worker.type === 'external' ? (
-          <span className="text-xs px-2 py-0.5 bg-clay-100 border border-clay-300 text-clay-700">EXT</span>
+          <span className="text-xs px-2 py-0.5 bg-clay-100 border border-clay-300 text-clay-700">{t('workers.ext')}</span>
         ) : (
-          <span className="text-xs text-steel-400">Permanent</span>
+          <span className="text-xs text-steel-400">{t('workers.permanent')}</span>
         )}
       </td>
       <td className="py-3 px-4 text-xs font-mono text-steel-500">
@@ -119,19 +123,19 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
             onClick={() => setAvailabilityWorker(worker)}
             className="px-2 py-1 text-xs font-medium text-clinic-700 hover:bg-clinic-50 transition-colors"
           >
-            Avail
+            {t('workers.avail')}
           </button>
           <button
             onClick={() => handleEdit(worker)}
             className="px-2 py-1 text-xs font-medium text-steel-600 hover:bg-steel-100 transition-colors"
           >
-            Edit
+            {t('common.edit')}
           </button>
           <button
             onClick={() => handleDelete(worker)}
             className="px-2 py-1 text-xs font-medium text-clay-600 hover:bg-clay-50 transition-colors"
           >
-            Del
+            {t('common.delete')}
           </button>
         </div>
       </td>
@@ -153,13 +157,13 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-steel-50 text-left">
-                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">Name</th>
-                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">Role</th>
-                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">Type</th>
-                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">Start</th>
-                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">End</th>
-                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">Flags</th>
-                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">Actions</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">{t('workers.name')}</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">{t('workers.role')}</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">{t('workers.type')}</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">{t('workers.start')}</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">{t('workers.end')}</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">{t('workers.flags')}</th>
+                <th className="py-2 px-4 text-xs font-semibold text-steel-500 uppercase">{t('workers.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -177,26 +181,26 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <span className="text-sm text-steel-500">
-            Showing personnel active in <strong>{MONTH_NAMES[selectedMonth - 1]} {selectedYear}</strong>
+            {t('workers.showingActive')} <strong>{monthNames[selectedMonth - 1]} {selectedYear}</strong>
           </span>
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value as WorkerRole | 'all')}
             className="border border-steel-200 px-2 py-1 text-sm bg-white focus:outline-none focus:border-clinic-500"
           >
-            <option value="all">All Roles</option>
-            <option value="senior_specialist">Senior Specialists</option>
-            <option value="resident">Residents</option>
-            <option value="student">Students</option>
+            <option value="all">{t('workers.allRoles')}</option>
+            <option value="senior_specialist">{t('workers.seniorSpecialists')}</option>
+            <option value="resident">{t('workers.residents')}</option>
+            <option value="student">{t('workers.students')}</option>
           </select>
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as WorkerType | 'all')}
             className="border border-steel-200 px-2 py-1 text-sm bg-white focus:outline-none focus:border-clinic-500"
           >
-            <option value="all">All Types</option>
-            <option value="permanent">Permanent</option>
-            <option value="external">External</option>
+            <option value="all">{t('workers.allTypes')}</option>
+            <option value="permanent">{t('workers.permanent')}</option>
+            <option value="external">{t('workers.external')}</option>
           </select>
         </div>
 
@@ -204,7 +208,7 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
           onClick={() => setShowForm(true)}
           className="px-4 py-2 bg-clinic-500 text-white font-semibold text-sm hover:bg-clinic-600 transition-colors shadow-sharp"
         >
-          + Add Personnel
+          {t('workers.addPersonnel')}
         </button>
       </div>
 
@@ -212,32 +216,32 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
       <div className="flex gap-6 mb-6 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-clay-500"></div>
-          <span className="text-steel-600">{seniorSpecialists.length} Supervisors</span>
+          <span className="text-steel-600">{seniorSpecialists.length} {t('workers.supervisorsLabel')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-steel-400"></div>
-          <span className="text-steel-600">{residents.length} Residents</span>
+          <span className="text-steel-600">{residents.length} {t('workers.residentsLabel')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-clinic-500"></div>
-          <span className="text-steel-600">{students.length} Students</span>
+          <span className="text-steel-600">{students.length} {t('workers.studentsLabel')}</span>
         </div>
       </div>
 
       {/* Worker Lists */}
       {(roleFilter === 'all' || roleFilter === 'senior_specialist') && (
-        <WorkerSection title="Senior Specialists (Supervisors)" workers={seniorSpecialists} color="bg-clay-500" />
+        <WorkerSection title={t('workers.seniorSpecialistsSupervisors')} workers={seniorSpecialists} color="bg-clay-500" />
       )}
       {(roleFilter === 'all' || roleFilter === 'resident') && (
-        <WorkerSection title="Residents (1st/2nd Line)" workers={residents} color="bg-steel-400" />
+        <WorkerSection title={t('workers.residentsFirstSecond')} workers={residents} color="bg-steel-400" />
       )}
       {(roleFilter === 'all' || roleFilter === 'student') && (
-        <WorkerSection title="Medical Students (2nd/3rd Line)" workers={students} color="bg-clinic-500" />
+        <WorkerSection title={t('workers.studentsSecondThird')} workers={students} color="bg-clinic-500" />
       )}
 
       {filteredWorkers.length === 0 && (
         <div className="text-center py-12 text-steel-500">
-          No personnel active in {MONTH_NAMES[selectedMonth - 1]} {selectedYear} with current filters.
+          {t('workers.noPersonnel')} {monthNames[selectedMonth - 1]} {selectedYear}.
         </div>
       )}
 

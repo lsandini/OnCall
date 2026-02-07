@@ -46,9 +46,13 @@ export function createConfigRouter(
     res.json(settingsRepo.getAll());
   });
 
-  // PUT update settings (country, region)
+  // PUT update settings (country, region, language)
   router.put('/settings', (req: Request, res: Response) => {
-    const { country, region } = req.body;
+    const { country, region, language } = req.body;
+
+    if (language && ['en', 'fi'].includes(language)) {
+      settingsRepo.set('language', language);
+    }
 
     if (country) {
       const oldCountry = settingsRepo.get('country');

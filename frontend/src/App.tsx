@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Worker, MonthlySchedule } from './types';
 import { useApi } from './hooks/useApi';
-import { MONTH_NAMES } from './utils/helpers';
+import { getMonthNames } from './utils/helpers';
+import { useTranslation } from './i18n';
 import WorkersTab from './components/WorkersTab';
 import ScheduleTab from './components/ScheduleTab';
 import ConfigurationTab from './components/ConfigurationTab';
@@ -16,6 +17,8 @@ export default function App() {
   const [selectedMonth, setSelectedMonth] = useState(1);
 
   const api = useApi();
+  const { t, locale, setLocale, translations } = useTranslation();
+  const monthNames = getMonthNames(translations);
 
   useEffect(() => {
     loadWorkers();
@@ -55,35 +58,61 @@ export default function App() {
                 <span className="text-white font-bold text-lg">+</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-steel-900 tracking-tight">ONCALL</h1>
-                <p className="text-xs text-steel-500 font-mono uppercase tracking-wider">Internal Medicine Scheduling</p>
+                <h1 className="text-xl font-bold text-steel-900 tracking-tight">{t('app.title')}</h1>
+                <p className="text-xs text-steel-500 font-mono uppercase tracking-wider">{t('app.subtitle')}</p>
               </div>
             </div>
 
-            <div className="flex items-center border-2 border-steel-200">
-              <button
-                onClick={() => {
-                  if (selectedMonth === 1) { setSelectedMonth(12); setSelectedYear(y => y - 1); }
-                  else setSelectedMonth(m => m - 1);
-                }}
-                className="px-3 py-1.5 text-steel-500 hover:text-steel-900 hover:bg-steel-50 font-bold text-lg transition-colors border-r-2 border-steel-200"
-                aria-label="Previous month"
-              >
-                &laquo;
-              </button>
-              <span className="px-4 py-1.5 font-semibold text-steel-900 text-sm tracking-wide min-w-[160px] text-center">
-                {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
-              </span>
-              <button
-                onClick={() => {
-                  if (selectedMonth === 12) { setSelectedMonth(1); setSelectedYear(y => y + 1); }
-                  else setSelectedMonth(m => m + 1);
-                }}
-                className="px-3 py-1.5 text-steel-500 hover:text-steel-900 hover:bg-steel-50 font-bold text-lg transition-colors border-l-2 border-steel-200"
-                aria-label="Next month"
-              >
-                &raquo;
-              </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center border-2 border-steel-200">
+                <button
+                  onClick={() => {
+                    if (selectedMonth === 1) { setSelectedMonth(12); setSelectedYear(y => y - 1); }
+                    else setSelectedMonth(m => m - 1);
+                  }}
+                  className="px-3 py-1.5 text-steel-500 hover:text-steel-900 hover:bg-steel-50 font-bold text-lg transition-colors border-r-2 border-steel-200"
+                  aria-label="Previous month"
+                >
+                  &laquo;
+                </button>
+                <span className="px-4 py-1.5 font-semibold text-steel-900 text-sm tracking-wide min-w-[160px] text-center">
+                  {monthNames[selectedMonth - 1]} {selectedYear}
+                </span>
+                <button
+                  onClick={() => {
+                    if (selectedMonth === 12) { setSelectedMonth(1); setSelectedYear(y => y + 1); }
+                    else setSelectedMonth(m => m + 1);
+                  }}
+                  className="px-3 py-1.5 text-steel-500 hover:text-steel-900 hover:bg-steel-50 font-bold text-lg transition-colors border-l-2 border-steel-200"
+                  aria-label="Next month"
+                >
+                  &raquo;
+                </button>
+              </div>
+
+              {/* Language Toggle */}
+              <div className="flex border-2 border-steel-200 self-stretch">
+                <button
+                  onClick={() => setLocale('en')}
+                  className={`w-10 text-sm font-semibold transition-colors ${
+                    locale === 'en'
+                      ? 'bg-clinic-500 text-white'
+                      : 'text-steel-600 hover:bg-steel-50'
+                  }`}
+                >
+                  EN
+                </button>
+                <button
+                  onClick={() => setLocale('fi')}
+                  className={`w-10 text-sm font-semibold border-l-2 border-steel-200 transition-colors ${
+                    locale === 'fi'
+                      ? 'bg-clinic-500 text-white'
+                      : 'text-steel-600 hover:bg-steel-50'
+                  }`}
+                >
+                  FI
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -101,7 +130,7 @@ export default function App() {
                   : 'text-steel-500 hover:text-steel-700 border-b-2 border-transparent'
               }`}
             >
-              Personnel Management
+              {t('app.personnelTab')}
             </button>
             <button
               onClick={() => setActiveTab('schedule')}
@@ -111,7 +140,7 @@ export default function App() {
                   : 'text-steel-500 hover:text-steel-700 border-b-2 border-transparent'
               }`}
             >
-              {MONTH_NAMES[selectedMonth - 1]} {selectedYear} Schedule
+              {monthNames[selectedMonth - 1]} {selectedYear} {t('app.scheduleTab')}
             </button>
             <button
               onClick={() => setActiveTab('configuration')}
@@ -121,7 +150,7 @@ export default function App() {
                   : 'text-steel-500 hover:text-steel-700 border-b-2 border-transparent'
               }`}
             >
-              Configuration
+              {t('app.configTab')}
             </button>
           </div>
         </div>
@@ -155,7 +184,7 @@ export default function App() {
       <footer className="border-t border-steel-200 bg-white mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <p className="text-xs text-steel-400 font-mono">
-            ONCALL v1.0 // Internal Medicine Clinic // {workers.filter(w => w.active).length} active personnel
+            ONCALL v1.0 // {t('app.footer')} // {workers.filter(w => w.active).length} {t('app.activePersonnel')}
           </p>
           <p className="text-xs text-steel-300 font-mono mt-1">
             &copy; {new Date().getFullYear()} Lorenzo Sandini
