@@ -1,3 +1,9 @@
+export interface Clinic {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 export type WorkerRole = 'senior_specialist' | 'resident' | 'student';
 export type WorkerType = 'permanent' | 'external';
 export type ShiftType = 'day' | 'evening' | 'night';
@@ -28,6 +34,7 @@ export interface ShiftConfiguration {
   createdAt: string;
   updatedAt: string;
   isActive: boolean;
+  clinicId: string;
 }
 
 export interface Worker {
@@ -40,6 +47,7 @@ export interface Worker {
   startDate?: string; // Employment start date (YYYY-MM-DD)
   endDate?: string; // Employment end date (YYYY-MM-DD), undefined = ongoing
   active: boolean;
+  clinicId: string;
   createdAt: string;
 }
 

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Worker, WeeklyAvailability, MonthlySchedule, CalendarWeek, ShiftConfiguration, Holiday } from '../types';
+import { Worker, WeeklyAvailability, MonthlySchedule, CalendarWeek, ShiftConfiguration, Holiday, Clinic } from '../types';
 
 const API_BASE = '/api';
 
@@ -15,7 +15,14 @@ export function useApi() {
         headers: { 'Content-Type': 'application/json' },
         ...options
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const body = await res.json();
+          if (body.error) msg = body.error;
+        } catch {}
+        throw new Error(msg);
+      }
       if (res.status === 204) return {} as T;
       return await res.json();
     } catch (e) {
@@ -27,11 +34,27 @@ export function useApi() {
     }
   }, []);
 
-  // Workers
-  const getWorkers = useCallback(() => fetchJson<Worker[]>('/workers'), [fetchJson]);
+  // Clinics
+  const getClinics = useCallback(() => fetchJson<Clinic[]>('/clinics'), [fetchJson]);
 
-  const createWorker = useCallback((worker: Partial<Worker>) =>
-    fetchJson<Worker>('/workers', { method: 'POST', body: JSON.stringify(worker) }), [fetchJson]);
+  const createClinic = useCallback((name: string) =>
+    fetchJson<Clinic>('/clinics', { method: 'POST', body: JSON.stringify({ name }) }), [fetchJson]);
+
+  const updateClinic = useCallback((id: string, name: string) =>
+    fetchJson<Clinic>(`/clinics/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }), [fetchJson]);
+
+  const deleteClinic = useCallback((id: string) =>
+    fetchJson(`/clinics/${id}`, { method: 'DELETE' }), [fetchJson]);
+
+  const getClinicStats = useCallback((id: string) =>
+    fetchJson<{ workerCount: number; configCount: number; scheduleCount: number }>(`/clinics/${id}/stats`), [fetchJson]);
+
+  // Workers
+  const getWorkers = useCallback((clinicId: string) =>
+    fetchJson<Worker[]>(`/workers?clinicId=${clinicId}`), [fetchJson]);
+
+  const createWorker = useCallback((clinicId: string, worker: Partial<Worker>) =>
+    fetchJson<Worker>('/workers', { method: 'POST', body: JSON.stringify({ ...worker, clinicId }) }), [fetchJson]);
 
   const updateWorker = useCallback((id: string, worker: Partial<Worker>) =>
     fetchJson<Worker>(`/workers/${id}`, { method: 'PUT', body: JSON.stringify(worker) }), [fetchJson]);
@@ -52,25 +75,26 @@ export function useApi() {
     fetchJson('/availability/batch', { method: 'POST', body: JSON.stringify({ entries }) }), [fetchJson]);
 
   // Schedules
-  const getSchedules = useCallback(() => fetchJson<MonthlySchedule[]>('/schedules'), [fetchJson]);
+  const getSchedules = useCallback((clinicId: string) =>
+    fetchJson<MonthlySchedule[]>(`/schedules?clinicId=${clinicId}`), [fetchJson]);
 
-  const getSchedule = useCallback((year: number, month: number) =>
-    fetchJson<MonthlySchedule>(`/schedules/${year}/${month}`), [fetchJson]);
+  const getSchedule = useCallback((clinicId: string, year: number, month: number) =>
+    fetchJson<MonthlySchedule>(`/schedules/${year}/${month}?clinicId=${clinicId}`), [fetchJson]);
 
-  const generateSchedule = useCallback((year: number, month: number) =>
+  const generateSchedule = useCallback((clinicId: string, year: number, month: number) =>
     fetchJson<MonthlySchedule>('/schedules/generate', {
       method: 'POST',
-      body: JSON.stringify({ year, month })
+      body: JSON.stringify({ clinicId, year, month })
     }), [fetchJson]);
 
-  const fillScheduleGaps = useCallback((year: number, month: number) =>
+  const fillScheduleGaps = useCallback((clinicId: string, year: number, month: number) =>
     fetchJson<MonthlySchedule>('/schedules/fill-gaps', {
       method: 'POST',
-      body: JSON.stringify({ year, month })
+      body: JSON.stringify({ clinicId, year, month })
     }), [fetchJson]);
 
-  const updateAssignment = useCallback((year: number, month: number, assignmentId: string, workerId: string) =>
-    fetchJson(`/schedules/${year}/${month}/assignment/${assignmentId}`, {
+  const updateAssignment = useCallback((clinicId: string, year: number, month: number, assignmentId: string, workerId: string) =>
+    fetchJson(`/schedules/${year}/${month}/assignment/${assignmentId}?clinicId=${clinicId}`, {
       method: 'PUT',
       body: JSON.stringify({ workerId })
     }), [fetchJson]);
@@ -80,11 +104,11 @@ export function useApi() {
     fetchJson<CalendarWeek[]>(`/calendar/weeks/${year}`), [fetchJson]);
 
   // Configuration
-  const getConfiguration = useCallback(() =>
-    fetchJson<ShiftConfiguration>('/config'), [fetchJson]);
+  const getConfiguration = useCallback((clinicId: string) =>
+    fetchJson<ShiftConfiguration>(`/config?clinicId=${clinicId}`), [fetchJson]);
 
-  const getAllConfigurations = useCallback(() =>
-    fetchJson<ShiftConfiguration[]>('/config/all'), [fetchJson]);
+  const getAllConfigurations = useCallback((clinicId: string) =>
+    fetchJson<ShiftConfiguration[]>(`/config/all?clinicId=${clinicId}`), [fetchJson]);
 
   const updateConfiguration = useCallback((id: string, config: Partial<ShiftConfiguration>) =>
     fetchJson<ShiftConfiguration>(`/config/${id}`, { method: 'PUT', body: JSON.stringify(config) }), [fetchJson]);
@@ -124,6 +148,11 @@ export function useApi() {
   return {
     loading,
     error,
+    getClinics,
+    createClinic,
+    updateClinic,
+    deleteClinic,
+    getClinicStats,
     getWorkers,
     createWorker,
     updateWorker,

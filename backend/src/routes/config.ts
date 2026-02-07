@@ -16,18 +16,26 @@ export function createConfigRouter(
 ) {
   const router = Router();
 
-  // GET active configuration
-  router.get('/', (_req: Request, res: Response) => {
-    const active = configRepo.getActive();
+  // GET active configuration for a clinic
+  router.get('/', (req: Request, res: Response) => {
+    const clinicId = req.query.clinicId as string;
+    if (!clinicId) {
+      return res.status(400).json({ error: 'clinicId query parameter is required' });
+    }
+    const active = configRepo.getActive(clinicId);
     if (!active) {
       return res.status(404).json({ error: 'No active configuration found' });
     }
     res.json(active);
   });
 
-  // GET all configurations
-  router.get('/all', (_req: Request, res: Response) => {
-    res.json(configRepo.getAll());
+  // GET all configurations for a clinic
+  router.get('/all', (req: Request, res: Response) => {
+    const clinicId = req.query.clinicId as string;
+    if (!clinicId) {
+      return res.status(400).json({ error: 'clinicId query parameter is required' });
+    }
+    res.json(configRepo.getAll(clinicId));
   });
 
   // GET supported countries
@@ -114,6 +122,7 @@ export function createConfigRouter(
       ...existing,
       ...updates,
       id: existing.id, // Prevent id change
+      clinicId: existing.clinicId, // Prevent clinic change
       updatedAt: new Date().toISOString()
     };
 

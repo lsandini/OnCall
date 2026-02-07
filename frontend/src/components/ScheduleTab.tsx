@@ -19,6 +19,8 @@ interface Props {
   year: number;
   month: number;
   onScheduleChange: () => void;
+  clinicId: string;
+  clinicName: string;
 }
 
 type ViewMode = 'calendar' | 'list' | 'distribution';
@@ -40,7 +42,7 @@ function getWeekNumber(date: Date): number {
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
-export default function ScheduleTab({ workers, schedule, year, month, onScheduleChange }: Props) {
+export default function ScheduleTab({ workers, schedule, year, month, onScheduleChange, clinicId, clinicName }: Props) {
   const [generating, setGenerating] = useState(false);
   const [fillingGaps, setFillingGaps] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
@@ -69,13 +71,13 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
 
-    api.getSchedule(prevYear, prevMonth).then(setPrevMonthSchedule).catch(() => setPrevMonthSchedule(null));
-    api.getSchedule(nextYear, nextMonth).then(setNextMonthSchedule).catch(() => setNextMonthSchedule(null));
-  }, [year, month]);
+    api.getSchedule(clinicId, prevYear, prevMonth).then(setPrevMonthSchedule).catch(() => setPrevMonthSchedule(null));
+    api.getSchedule(clinicId, nextYear, nextMonth).then(setNextMonthSchedule).catch(() => setNextMonthSchedule(null));
+  }, [year, month, clinicId]);
 
   useEffect(() => {
-    api.getConfiguration().then(setConfiguration).catch(() => {});
-  }, []);
+    api.getConfiguration(clinicId).then(setConfiguration).catch(() => {});
+  }, [clinicId]);
 
   useEffect(() => {
     api.getAvailability().then(setAvailability).catch(() => setAvailability([]));
@@ -101,7 +103,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      await api.generateSchedule(year, month);
+      await api.generateSchedule(clinicId, year, month);
       onScheduleChange();
     } catch (e) {
       alert(t('schedule.failedGenerate'));
@@ -113,7 +115,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
   const handleFillGaps = async () => {
     setFillingGaps(true);
     try {
-      await api.fillScheduleGaps(year, month);
+      await api.fillScheduleGaps(clinicId, year, month);
       onScheduleChange();
     } catch (e) {
       alert(t('schedule.failedFillGaps'));
@@ -124,7 +126,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
 
   const handleUpdateAssignment = async (assignmentId: string, workerId: string) => {
     try {
-      await api.updateAssignment(year, month, assignmentId, workerId);
+      await api.updateAssignment(clinicId, year, month, assignmentId, workerId);
       onScheduleChange();
       setEditingAssignment(null);
     } catch (e) {
@@ -467,18 +469,19 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
       <div>
         <div className="flex items-center justify-between mb-6 print:hidden">
           <h3 className="text-lg font-bold text-steel-700">
-            {t('schedule.monthlySchedule')} - {monthNames[month - 1]} {year}
+            {t('schedule.monthlySchedule')} - {clinicName} - {monthNames[month - 1]} {year}
           </h3>
           <button
             onClick={() => window.print()}
-            className="px-4 py-2 border-2 border-steel-200 text-steel-600 font-semibold hover:bg-steel-50 transition-colors"
+            className="h-10 px-4 border-2 border-steel-200 text-sm text-steel-600 font-semibold hover:bg-steel-50 transition-colors"
           >
+            <svg className="inline-block w-4 h-4 mr-1.5 -mt-0.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" /></svg>
             {t('common.print')}
           </button>
         </div>
 
         <div className="hidden print:block text-center mb-4">
-          <h2 className="text-lg font-bold">{t('schedule.onCallSchedule')} - {monthNames[month - 1]} {year}</h2>
+          <h2 className="text-lg font-bold">{t('schedule.onCallSchedule')} - {clinicName} - {monthNames[month - 1]} {year}</h2>
         </div>
 
         <div className="card-sharp overflow-x-auto print:shadow-none print:border">
@@ -561,10 +564,10 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex border-2 border-steel-200">
+          <div className="flex border-2 border-steel-200 h-10">
             <button
               onClick={() => setViewMode('calendar')}
-              className={`px-3 py-2 text-sm font-semibold ${
+              className={`px-3 text-sm font-semibold ${
                 viewMode === 'calendar' ? 'bg-clinic-500 text-white' : 'text-steel-600 hover:bg-steel-50'
               }`}
             >
@@ -572,7 +575,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-3 py-2 text-sm font-semibold border-l-2 border-steel-200 ${
+              className={`px-3 text-sm font-semibold border-l-2 border-steel-200 ${
                 viewMode === 'list' ? 'bg-clinic-500 text-white' : 'text-steel-600 hover:bg-steel-50'
               }`}
             >
@@ -580,7 +583,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
             </button>
             <button
               onClick={() => setViewMode('distribution')}
-              className={`px-3 py-2 text-sm font-semibold border-l-2 border-steel-200 ${
+              className={`px-3 text-sm font-semibold border-l-2 border-steel-200 ${
                 viewMode === 'distribution' ? 'bg-clinic-500 text-white' : 'text-steel-600 hover:bg-steel-50'
               }`}
             >
@@ -592,7 +595,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
             <button
               onClick={handleFillGaps}
               disabled={fillingGaps}
-              className="px-4 py-2 border-2 border-clay-400 text-clay-700 font-semibold hover:bg-clay-50 transition-colors disabled:opacity-50"
+              className="h-10 px-4 border-2 border-clay-400 text-sm text-clay-700 font-semibold hover:bg-clay-50 transition-colors disabled:opacity-50"
             >
               {fillingGaps ? t('schedule.filling') : `${t('schedule.fillGaps')} (${gapCount})`}
             </button>
@@ -601,7 +604,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="px-4 py-2 bg-clinic-500 text-white font-semibold hover:bg-clinic-600 transition-colors shadow-sharp disabled:opacity-50"
+            className="h-10 px-4 border-2 border-clinic-500 bg-clinic-500 text-sm text-white font-semibold hover:bg-clinic-600 hover:border-clinic-600 transition-colors shadow-sharp disabled:opacity-50"
           >
             {generating ? t('schedule.generating') : schedule ? t('schedule.regenerate') : t('schedule.generate')}
           </button>

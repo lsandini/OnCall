@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { MonthlySchedule, ShiftAssignment } from '../types/index.js';
 
 interface ScheduleRow {
+  clinic_id: string;
   year: number;
   month: number;
   generated_at: string;
@@ -9,6 +10,7 @@ interface ScheduleRow {
 
 interface AssignmentRow {
   id: string;
+  clinic_id: string;
   schedule_year: number;
   schedule_month: number;
   date: string;
@@ -40,68 +42,65 @@ function scheduleFromRows(scheduleRow: ScheduleRow, assignmentRows: AssignmentRo
 
 export function createScheduleRepo(db: Database.Database) {
   const stmts = {
-    getAllSchedules: db.prepare('SELECT * FROM monthly_schedules ORDER BY year, month'),
-    getSchedule: db.prepare('SELECT * FROM monthly_schedules WHERE year = ? AND month = ?'),
-    getAssignments: db.prepare('SELECT * FROM shift_assignments WHERE schedule_year = ? AND schedule_month = ?'),
-    getAllAssignments: db.prepare('SELECT * FROM shift_assignments ORDER BY schedule_year, schedule_month, date'),
+    getAllSchedules: db.prepare('SELECT * FROM monthly_schedules WHERE clinic_id = ? ORDER BY year, month'),
+    getSchedule: db.prepare('SELECT * FROM monthly_schedules WHERE clinic_id = ? AND year = ? AND month = ?'),
+    getAssignments: db.prepare('SELECT * FROM shift_assignments WHERE clinic_id = ? AND schedule_year = ? AND schedule_month = ?'),
     insertSchedule: db.prepare(`
-      INSERT OR REPLACE INTO monthly_schedules (year, month, generated_at)
-      VALUES (@year, @month, @generated_at)
+      INSERT OR REPLACE INTO monthly_schedules (clinic_id, year, month, generated_at)
+      VALUES (@clinic_id, @year, @month, @generated_at)
     `),
     insertAssignment: db.prepare(`
-      INSERT INTO shift_assignments (id, schedule_year, schedule_month, date, shift_type, position, worker_id, is_double_shift)
-      VALUES (@id, @schedule_year, @schedule_month, @date, @shift_type, @position, @worker_id, @is_double_shift)
+      INSERT INTO shift_assignments (id, clinic_id, schedule_year, schedule_month, date, shift_type, position, worker_id, is_double_shift)
+      VALUES (@id, @clinic_id, @schedule_year, @schedule_month, @date, @shift_type, @position, @worker_id, @is_double_shift)
     `),
-    deleteAssignments: db.prepare('DELETE FROM shift_assignments WHERE schedule_year = ? AND schedule_month = ?'),
-    deleteSchedule: db.prepare('DELETE FROM monthly_schedules WHERE year = ? AND month = ?'),
+    deleteAssignments: db.prepare('DELETE FROM shift_assignments WHERE clinic_id = ? AND schedule_year = ? AND schedule_month = ?'),
+    deleteSchedule: db.prepare('DELETE FROM monthly_schedules WHERE clinic_id = ? AND year = ? AND month = ?'),
     getAssignment: db.prepare('SELECT * FROM shift_assignments WHERE id = ?'),
     updateAssignmentWorker: db.prepare('UPDATE shift_assignments SET worker_id = ? WHERE id = ?'),
   };
 
-  const saveTx = db.transaction((schedule: MonthlySchedule) => {
-    // Delete existing assignments for this month first
-    stmts.deleteAssignments.run(schedule.year, schedule.month);
-    // Upsert the schedule header
-    stmts.insertSchedule.run({
-      year: schedule.year,
-      month: schedule.month,
-      generated_at: schedule.generatedAt,
-    });
-    // Insert all assignments
-    for (const a of schedule.assignments) {
-      stmts.insertAssignment.run({
-        id: a.id,
-        schedule_year: schedule.year,
-        schedule_month: schedule.month,
-        date: a.date,
-        shift_type: a.shiftType,
-        position: a.position,
-        worker_id: a.workerId,
-        is_double_shift: a.isDoubleShift ? 1 : 0,
-      });
-    }
-  });
-
   return {
-    getAll(): MonthlySchedule[] {
-      const schedules = stmts.getAllSchedules.all() as ScheduleRow[];
+    getAll(clinicId: string): MonthlySchedule[] {
+      const schedules = stmts.getAllSchedules.all(clinicId) as ScheduleRow[];
       return schedules.map(s => {
-        const assignments = stmts.getAssignments.all(s.year, s.month) as AssignmentRow[];
+        const assignments = stmts.getAssignments.all(clinicId, s.year, s.month) as AssignmentRow[];
         return scheduleFromRows(s, assignments);
       });
     },
 
-    getByMonth(year: number, month: number): MonthlySchedule | undefined {
-      const s = stmts.getSchedule.get(year, month) as ScheduleRow | undefined;
+    getByMonth(clinicId: string, year: number, month: number): MonthlySchedule | undefined {
+      const s = stmts.getSchedule.get(clinicId, year, month) as ScheduleRow | undefined;
       if (!s) return undefined;
-      const assignments = stmts.getAssignments.all(year, month) as AssignmentRow[];
+      const assignments = stmts.getAssignments.all(clinicId, year, month) as AssignmentRow[];
       return scheduleFromRows(s, assignments);
     },
 
-    save(schedule: MonthlySchedule): MonthlySchedule {
-      saveTx(schedule);
+    save: db.transaction((clinicId: string, schedule: MonthlySchedule): MonthlySchedule => {
+      // Delete existing assignments for this month first
+      stmts.deleteAssignments.run(clinicId, schedule.year, schedule.month);
+      // Upsert the schedule header
+      stmts.insertSchedule.run({
+        clinic_id: clinicId,
+        year: schedule.year,
+        month: schedule.month,
+        generated_at: schedule.generatedAt,
+      });
+      // Insert all assignments
+      for (const a of schedule.assignments) {
+        stmts.insertAssignment.run({
+          id: a.id,
+          clinic_id: clinicId,
+          schedule_year: schedule.year,
+          schedule_month: schedule.month,
+          date: a.date,
+          shift_type: a.shiftType,
+          position: a.position,
+          worker_id: a.workerId,
+          is_double_shift: a.isDoubleShift ? 1 : 0,
+        });
+      }
       return schedule;
-    },
+    }),
 
     updateAssignment(assignmentId: string, workerId: string): ShiftAssignment | undefined {
       stmts.updateAssignmentWorker.run(workerId, assignmentId);
@@ -109,9 +108,9 @@ export function createScheduleRepo(db: Database.Database) {
       return row ? rowToAssignment(row) : undefined;
     },
 
-    deleteByMonth(year: number, month: number): boolean {
+    deleteByMonth(clinicId: string, year: number, month: number): boolean {
       // Cascade: deleting the schedule deletes assignments via FK
-      const info = stmts.deleteSchedule.run(year, month);
+      const info = stmts.deleteSchedule.run(clinicId, year, month);
       return info.changes > 0;
     },
   };

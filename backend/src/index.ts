@@ -8,10 +8,12 @@ import { createScheduleRepo } from './repositories/scheduleRepo.js';
 import { createConfigRepo } from './repositories/configRepo.js';
 import { createHolidayRepo } from './repositories/holidayRepo.js';
 import { createSettingsRepo } from './repositories/settingsRepo.js';
+import { createClinicRepo } from './repositories/clinicRepo.js';
 import { createWorkersRouter } from './routes/workers.js';
 import { createAvailabilityRouter } from './routes/availability.js';
 import { createSchedulesRouter } from './routes/schedules.js';
 import { createConfigRouter } from './routes/config.js';
+import { createClinicsRouter } from './routes/clinics.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -31,8 +33,10 @@ const scheduleRepo = createScheduleRepo(db);
 const configRepo = createConfigRepo(db);
 const holidayRepo = createHolidayRepo(db);
 const settingsRepo = createSettingsRepo(db);
+const clinicRepo = createClinicRepo(db);
 
 // Routes
+app.use('/api/clinics', createClinicsRouter(clinicRepo));
 app.use('/api/workers', createWorkersRouter(workerRepo));
 app.use('/api/availability', createAvailabilityRouter(availabilityRepo));
 app.use('/api/schedules', createSchedulesRouter(workerRepo, availabilityRepo, scheduleRepo, configRepo, holidayRepo, settingsRepo));
@@ -40,7 +44,9 @@ app.use('/api/config', createConfigRouter(configRepo, holidayRepo, settingsRepo)
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', workers: workerRepo.count(), schedules: scheduleRepo.getAll().length });
+  const clinics = clinicRepo.getAll();
+  const totalWorkers = clinics.reduce((sum, c) => sum + workerRepo.count(c.id), 0);
+  res.json({ status: 'ok', clinics: clinics.length, workers: totalWorkers });
 });
 
 // Calendar helper - get weeks in a year
@@ -86,5 +92,6 @@ process.on('SIGTERM', () => {
 // Start server
 app.listen(PORT, () => {
   console.log(`OnCall API running on port ${PORT}`);
-  console.log(`Loaded ${workerRepo.count()} workers`);
+  const clinics = clinicRepo.getAll();
+  console.log(`Loaded ${clinics.length} clinics: ${clinics.map(c => c.name).join(', ')}`);
 });

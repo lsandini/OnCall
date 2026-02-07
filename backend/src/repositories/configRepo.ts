@@ -8,6 +8,7 @@ interface ConfigRow {
   created_at: string;
   updated_at: string;
   is_active: number;
+  clinic_id: string;
 }
 
 interface ShiftTypeRow {
@@ -51,19 +52,20 @@ function assembleConfig(
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     isActive: row.is_active === 1,
+    clinicId: row.clinic_id,
   };
 }
 
 export function createConfigRepo(db: Database.Database) {
   const stmts = {
-    getAll: db.prepare('SELECT * FROM shift_configurations'),
+    getAll: db.prepare('SELECT * FROM shift_configurations WHERE clinic_id = ?'),
     getById: db.prepare('SELECT * FROM shift_configurations WHERE id = ?'),
-    getActive: db.prepare('SELECT * FROM shift_configurations WHERE is_active = 1 LIMIT 1'),
+    getActive: db.prepare('SELECT * FROM shift_configurations WHERE clinic_id = ? AND is_active = 1 LIMIT 1'),
     getShiftTypes: db.prepare('SELECT * FROM shift_type_definitions WHERE config_id = ?'),
     getRequirements: db.prepare('SELECT * FROM daily_shift_requirements WHERE config_id = ?'),
     insertConfig: db.prepare(`
-      INSERT INTO shift_configurations (id, name, description, created_at, updated_at, is_active)
-      VALUES (@id, @name, @description, @created_at, @updated_at, @is_active)
+      INSERT INTO shift_configurations (id, name, description, created_at, updated_at, is_active, clinic_id)
+      VALUES (@id, @name, @description, @created_at, @updated_at, @is_active, @clinic_id)
     `),
     insertShiftType: db.prepare(`
       INSERT INTO shift_type_definitions (config_id, id, name, start_time, end_time, crosses_midnight)
@@ -80,7 +82,7 @@ export function createConfigRepo(db: Database.Database) {
     `),
     deleteShiftTypes: db.prepare('DELETE FROM shift_type_definitions WHERE config_id = ?'),
     deleteRequirements: db.prepare('DELETE FROM daily_shift_requirements WHERE config_id = ?'),
-    deactivateAll: db.prepare('UPDATE shift_configurations SET is_active = 0'),
+    deactivateAllForClinic: db.prepare('UPDATE shift_configurations SET is_active = 0 WHERE clinic_id = ?'),
     activate: db.prepare('UPDATE shift_configurations SET is_active = 1, updated_at = ? WHERE id = ?'),
   };
 
@@ -98,6 +100,7 @@ export function createConfigRepo(db: Database.Database) {
       created_at: config.createdAt,
       updated_at: config.updatedAt,
       is_active: config.isActive ? 1 : 0,
+      clinic_id: config.clinicId,
     });
     for (const st of config.shiftTypes) {
       stmts.insertShiftType.run({
@@ -150,19 +153,19 @@ export function createConfigRepo(db: Database.Database) {
     }
   });
 
-  const activateTx = db.transaction((id: string) => {
-    stmts.deactivateAll.run();
+  const activateTx = db.transaction((id: string, clinicId: string) => {
+    stmts.deactivateAllForClinic.run(clinicId);
     stmts.activate.run(new Date().toISOString(), id);
   });
 
   return {
-    getAll(): ShiftConfiguration[] {
-      const rows = stmts.getAll.all() as ConfigRow[];
+    getAll(clinicId: string): ShiftConfiguration[] {
+      const rows = stmts.getAll.all(clinicId) as ConfigRow[];
       return rows.map(loadConfig);
     },
 
-    getActive(): ShiftConfiguration | undefined {
-      const row = stmts.getActive.get() as ConfigRow | undefined;
+    getActive(clinicId: string): ShiftConfiguration | undefined {
+      const row = stmts.getActive.get(clinicId) as ConfigRow | undefined;
       return row ? loadConfig(row) : undefined;
     },
 
@@ -186,7 +189,7 @@ export function createConfigRepo(db: Database.Database) {
     activate(id: string): ShiftConfiguration | undefined {
       const existing = stmts.getById.get(id) as ConfigRow | undefined;
       if (!existing) return undefined;
-      activateTx(id);
+      activateTx(id, existing.clinic_id);
       return this.getById(id);
     },
   };

@@ -8,9 +8,10 @@ const ALL_POSITIONS: LinePosition[] = ['supervisor', 'first_line', 'second_line'
 
 interface Props {
   onConfigChange?: () => void;
+  clinicId: string;
 }
 
-export default function ConfigurationTab({ onConfigChange }: Props) {
+export default function ConfigurationTab({ onConfigChange, clinicId }: Props) {
   const [configuration, setConfiguration] = useState<ShiftConfiguration | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editedConfig, setEditedConfig] = useState<ShiftConfiguration | null>(null);
@@ -39,7 +40,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
   useEffect(() => {
     loadConfiguration();
     loadHolidayData();
-  }, []);
+  }, [clinicId]);
 
   useEffect(() => {
     if (settings.country) {
@@ -51,7 +52,7 @@ export default function ConfigurationTab({ onConfigChange }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const config = await api.getConfiguration();
+      const config = await api.getConfiguration(clinicId);
       setConfiguration(config);
       setEditedConfig(JSON.parse(JSON.stringify(config)));
     } catch (e) {

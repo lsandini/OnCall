@@ -11,6 +11,7 @@ interface WorkerRow {
   start_date: string | null;
   end_date: string | null;
   active: number;
+  clinic_id: string;
   created_at: string;
 }
 
@@ -25,17 +26,18 @@ function rowToWorker(row: WorkerRow): Worker {
     startDate: row.start_date ?? undefined,
     endDate: row.end_date ?? undefined,
     active: row.active === 1,
+    clinicId: row.clinic_id,
     createdAt: row.created_at,
   };
 }
 
 export function createWorkerRepo(db: Database.Database) {
   const stmts = {
-    getAll: db.prepare('SELECT * FROM workers'),
+    getAll: db.prepare('SELECT * FROM workers WHERE clinic_id = ?'),
     getById: db.prepare('SELECT * FROM workers WHERE id = ?'),
     insert: db.prepare(`
-      INSERT INTO workers (id, name, role, type, can_double_shift, year_of_study, start_date, end_date, active, created_at)
-      VALUES (@id, @name, @role, @type, @can_double_shift, @year_of_study, @start_date, @end_date, @active, @created_at)
+      INSERT INTO workers (id, name, role, type, can_double_shift, year_of_study, start_date, end_date, active, clinic_id, created_at)
+      VALUES (@id, @name, @role, @type, @can_double_shift, @year_of_study, @start_date, @end_date, @active, @clinic_id, @created_at)
     `),
     update: db.prepare(`
       UPDATE workers
@@ -44,12 +46,12 @@ export function createWorkerRepo(db: Database.Database) {
       WHERE id = @id
     `),
     softDelete: db.prepare('UPDATE workers SET active = 0 WHERE id = ?'),
-    count: db.prepare('SELECT COUNT(*) AS cnt FROM workers'),
+    count: db.prepare('SELECT COUNT(*) AS cnt FROM workers WHERE clinic_id = ?'),
   };
 
   return {
-    getAll(): Worker[] {
-      return (stmts.getAll.all() as WorkerRow[]).map(rowToWorker);
+    getAll(clinicId: string): Worker[] {
+      return (stmts.getAll.all(clinicId) as WorkerRow[]).map(rowToWorker);
     },
 
     getById(id: string): Worker | undefined {
@@ -68,6 +70,7 @@ export function createWorkerRepo(db: Database.Database) {
         start_date: worker.startDate ?? null,
         end_date: worker.endDate ?? null,
         active: worker.active ? 1 : 0,
+        clinic_id: worker.clinicId,
         created_at: worker.createdAt,
       });
       return worker;
@@ -102,8 +105,8 @@ export function createWorkerRepo(db: Database.Database) {
       return info.changes > 0;
     },
 
-    count(): number {
-      return (stmts.count.get() as { cnt: number }).cnt;
+    count(clinicId: string): number {
+      return (stmts.count.get(clinicId) as { cnt: number }).cnt;
     },
 
     createMany: db.transaction((workers: Worker[]) => {
@@ -118,6 +121,7 @@ export function createWorkerRepo(db: Database.Database) {
           start_date: w.startDate ?? null,
           end_date: w.endDate ?? null,
           active: w.active ? 1 : 0,
+          clinic_id: w.clinicId,
           created_at: w.createdAt,
         });
       }

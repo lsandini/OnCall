@@ -13,12 +13,19 @@ export function openDatabase(): Database.Database {
   db.pragma('foreign_keys = ON');
 
   createTables(db);
+  migrateToMultiClinic(db);
 
   return db;
 }
 
 function createTables(db: Database.Database): void {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS clinics (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS workers (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -29,6 +36,7 @@ function createTables(db: Database.Database): void {
       start_date TEXT,
       end_date TEXT,
       active INTEGER NOT NULL DEFAULT 1,
+      clinic_id TEXT REFERENCES clinics(id),
       created_at TEXT NOT NULL
     );
 
@@ -44,14 +52,17 @@ function createTables(db: Database.Database): void {
     );
 
     CREATE TABLE IF NOT EXISTS monthly_schedules (
+      clinic_id TEXT NOT NULL,
       year INTEGER NOT NULL,
       month INTEGER NOT NULL,
       generated_at TEXT NOT NULL,
-      PRIMARY KEY (year, month)
+      PRIMARY KEY (clinic_id, year, month),
+      FOREIGN KEY (clinic_id) REFERENCES clinics(id)
     );
 
     CREATE TABLE IF NOT EXISTS shift_assignments (
       id TEXT PRIMARY KEY,
+      clinic_id TEXT NOT NULL,
       schedule_year INTEGER NOT NULL,
       schedule_month INTEGER NOT NULL,
       date TEXT NOT NULL,
@@ -59,7 +70,7 @@ function createTables(db: Database.Database): void {
       position TEXT NOT NULL,
       worker_id TEXT NOT NULL,
       is_double_shift INTEGER NOT NULL DEFAULT 0,
-      FOREIGN KEY (schedule_year, schedule_month) REFERENCES monthly_schedules(year, month) ON DELETE CASCADE,
+      FOREIGN KEY (clinic_id, schedule_year, schedule_month) REFERENCES monthly_schedules(clinic_id, year, month) ON DELETE CASCADE,
       FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE
     );
 
@@ -69,7 +80,8 @@ function createTables(db: Database.Database): void {
       description TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      is_active INTEGER NOT NULL DEFAULT 0
+      is_active INTEGER NOT NULL DEFAULT 0,
+      clinic_id TEXT REFERENCES clinics(id)
     );
 
     CREATE TABLE IF NOT EXISTS shift_type_definitions (
@@ -105,4 +117,70 @@ function createTables(db: Database.Database): void {
       PRIMARY KEY (date, country)
     );
   `);
+}
+
+function migrateToMultiClinic(db: Database.Database): void {
+  // Check if migration is needed: if clinics table exists but has rows, already migrated.
+  // If clinics table exists (from fresh createTables) but is empty and workers have no clinic_id, need to migrate.
+  const hasClinicIdColumn = db.prepare(
+    "SELECT COUNT(*) as cnt FROM pragma_table_info('workers') WHERE name = 'clinic_id'"
+  ).get() as { cnt: number };
+
+  // Fresh DB with new schema already has clinic_id column
+  if (!hasClinicIdColumn.cnt) {
+    // Old schema: need to add clinic_id columns via ALTER TABLE
+    db.pragma('foreign_keys = OFF');
+    const migrate = db.transaction(() => {
+      const now = new Date().toISOString();
+
+      // Insert default clinic
+      db.exec(`INSERT OR IGNORE INTO clinics (id, name, created_at) VALUES ('internal-medicine', 'Internal Medicine', '${now}')`);
+
+      // Add clinic_id to workers
+      db.exec(`ALTER TABLE workers ADD COLUMN clinic_id TEXT REFERENCES clinics(id)`);
+      db.exec(`UPDATE workers SET clinic_id = 'internal-medicine'`);
+
+      // Add clinic_id to shift_configurations
+      db.exec(`ALTER TABLE shift_configurations ADD COLUMN clinic_id TEXT REFERENCES clinics(id)`);
+      db.exec(`UPDATE shift_configurations SET clinic_id = 'internal-medicine'`);
+
+      // Recreate monthly_schedules with clinic_id in PK
+      db.exec(`ALTER TABLE monthly_schedules RENAME TO monthly_schedules_old`);
+      db.exec(`
+        CREATE TABLE monthly_schedules (
+          clinic_id TEXT NOT NULL,
+          year INTEGER NOT NULL,
+          month INTEGER NOT NULL,
+          generated_at TEXT NOT NULL,
+          PRIMARY KEY (clinic_id, year, month),
+          FOREIGN KEY (clinic_id) REFERENCES clinics(id)
+        )
+      `);
+      db.exec(`INSERT INTO monthly_schedules (clinic_id, year, month, generated_at) SELECT 'internal-medicine', year, month, generated_at FROM monthly_schedules_old`);
+      db.exec(`DROP TABLE monthly_schedules_old`);
+
+      // Recreate shift_assignments with clinic_id
+      db.exec(`ALTER TABLE shift_assignments RENAME TO shift_assignments_old`);
+      db.exec(`
+        CREATE TABLE shift_assignments (
+          id TEXT PRIMARY KEY,
+          clinic_id TEXT NOT NULL,
+          schedule_year INTEGER NOT NULL,
+          schedule_month INTEGER NOT NULL,
+          date TEXT NOT NULL,
+          shift_type TEXT NOT NULL,
+          position TEXT NOT NULL,
+          worker_id TEXT NOT NULL,
+          is_double_shift INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (clinic_id, schedule_year, schedule_month) REFERENCES monthly_schedules(clinic_id, year, month) ON DELETE CASCADE,
+          FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec(`INSERT INTO shift_assignments (id, clinic_id, schedule_year, schedule_month, date, shift_type, position, worker_id, is_double_shift) SELECT id, 'internal-medicine', schedule_year, schedule_month, date, shift_type, position, worker_id, is_double_shift FROM shift_assignments_old`);
+      db.exec(`DROP TABLE shift_assignments_old`);
+    });
+    migrate();
+    db.pragma('foreign_keys = ON');
+    console.log('Migrated existing database to multi-clinic schema');
+  }
 }

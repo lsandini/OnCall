@@ -7,9 +7,10 @@ interface Props {
   worker: Worker | null;
   onClose: () => void;
   onSave: () => void;
+  clinicId: string;
 }
 
-export default function WorkerForm({ worker, onClose, onSave }: Props) {
+export default function WorkerForm({ worker, onClose, onSave, clinicId }: Props) {
   const [name, setName] = useState(worker?.name || '');
   const [role, setRole] = useState<WorkerRole>(worker?.role || 'resident');
   const [type, setType] = useState<WorkerType>(worker?.type || 'permanent');
@@ -41,7 +42,7 @@ export default function WorkerForm({ worker, onClose, onSave }: Props) {
       if (worker) {
         await api.updateWorker(worker.id, data);
       } else {
-        await api.createWorker(data);
+        await api.createWorker(clinicId, data);
       }
       onSave();
     } catch (e) {

@@ -11,6 +11,7 @@ interface Props {
   onWorkersChange: () => void;
   selectedYear: number;
   selectedMonth: number;
+  clinicId: string;
 }
 
 // Check if a worker is active during a specific month
@@ -36,7 +37,7 @@ function formatDate(dateStr?: string): string {
   return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
 }
 
-export default function WorkersTab({ workers, onWorkersChange, selectedYear, selectedMonth }: Props) {
+export default function WorkersTab({ workers, onWorkersChange, selectedYear, selectedMonth, clinicId }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [availabilityWorker, setAvailabilityWorker] = useState<Worker | null>(null);
@@ -251,6 +252,7 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
           worker={editingWorker}
           onClose={handleFormClose}
           onSave={handleFormSave}
+          clinicId={clinicId}
         />
       )}
 

@@ -1,5 +1,7 @@
 import { WorkerRole, LinePosition, ShiftType } from '../types';
 import type { Locale, Translations } from '../i18n';
+import { en } from '../i18n/locales/en';
+import { fi } from '../i18n/locales/fi';
 
 // Locale-aware label functions
 export function getRoleLabels(translations: Translations): Record<WorkerRole, string> {
@@ -63,6 +65,24 @@ export function getConfigName(dbName: string, translations: Translations): strin
 export function getConfigDescription(dbDesc: string, translations: Translations): string {
   const key = KNOWN_CONFIG_DESCS[dbDesc];
   return key ? translations.config[key] : dbDesc;
+}
+
+// Reverse-lookup: map any stored clinic name (in any locale) to its specialty key
+const nameToSpecialtyKey: Record<string, keyof Translations['specialties']> = {};
+for (const key of Object.keys(en.specialties) as (keyof Translations['specialties'])[]) {
+  nameToSpecialtyKey[en.specialties[key]] = key;
+  nameToSpecialtyKey[fi.specialties[key]] = key;
+}
+
+/** Display a clinic name in the current locale (falls back to stored name for custom clinics) */
+export function getClinicDisplayName(storedName: string, translations: Translations): string {
+  const key = nameToSpecialtyKey[storedName];
+  return key ? translations.specialties[key] : storedName;
+}
+
+/** Find the specialty key for a stored clinic name, if any */
+export function getSpecialtyKey(storedName: string): keyof Translations['specialties'] | null {
+  return nameToSpecialtyKey[storedName] ?? null;
 }
 
 // Backward-compat constants (English defaults)
