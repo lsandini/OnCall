@@ -60,26 +60,30 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm">
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                  className="border-2 border-steel-200 px-3 py-1.5 font-medium bg-white focus:outline-none focus:border-clinic-500"
-                >
-                  {MONTH_NAMES.map((name, i) => (
-                    <option key={i + 1} value={i + 1}>{name}</option>
-                  ))}
-                </select>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="border-2 border-steel-200 px-3 py-1.5 font-medium bg-white focus:outline-none focus:border-clinic-500"
-                >
-                  <option value={2026}>2026</option>
-                  <option value={2027}>2027</option>
-                </select>
-              </div>
+            <div className="flex items-center border-2 border-steel-200">
+              <button
+                onClick={() => {
+                  if (selectedMonth === 1) { setSelectedMonth(12); setSelectedYear(y => y - 1); }
+                  else setSelectedMonth(m => m - 1);
+                }}
+                className="px-3 py-1.5 text-steel-500 hover:text-steel-900 hover:bg-steel-50 font-bold text-lg transition-colors border-r-2 border-steel-200"
+                aria-label="Previous month"
+              >
+                &laquo;
+              </button>
+              <span className="px-4 py-1.5 font-semibold text-steel-900 text-sm tracking-wide min-w-[160px] text-center">
+                {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
+              </span>
+              <button
+                onClick={() => {
+                  if (selectedMonth === 12) { setSelectedMonth(1); setSelectedYear(y => y + 1); }
+                  else setSelectedMonth(m => m + 1);
+                }}
+                className="px-3 py-1.5 text-steel-500 hover:text-steel-900 hover:bg-steel-50 font-bold text-lg transition-colors border-l-2 border-steel-200"
+                aria-label="Next month"
+              >
+                &raquo;
+              </button>
             </div>
           </div>
         </div>

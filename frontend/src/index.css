@@ -43,10 +43,7 @@
 
 body {
   font-family: 'DM Sans', system-ui, sans-serif;
-  background-color: #f3f4f6;
-  background-image:
-    radial-gradient(circle at 1px 1px, #ccd2d9 1px, transparent 0);
-  background-size: 24px 24px;
+  background-color: #e5e8ec;
 }
 
 .font-mono {
@@ -75,6 +72,7 @@ body {
 /* Sharp card style */
 .card-sharp {
   @apply bg-white border-2 border-steel-200 shadow-sharp;
+  transition: box-shadow 0.2s ease;
 }
 
 .card-sharp:hover {

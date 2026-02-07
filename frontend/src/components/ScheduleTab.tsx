@@ -45,12 +45,25 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [configuration, setConfiguration] = useState<ShiftConfiguration | null>(null);
   const [availability, setAvailability] = useState<WeeklyAvailability[]>([]);
+  const [prevMonthSchedule, setPrevMonthSchedule] = useState<MonthlySchedule | null>(null);
+  const [nextMonthSchedule, setNextMonthSchedule] = useState<MonthlySchedule | null>(null);
 
   const api = useApi();
 
   useEffect(() => {
     api.getHolidays(year).then(setHolidays).catch(() => setHolidays([]));
   }, [year]);
+
+  // Fetch adjacent months' schedules for overflow days
+  useEffect(() => {
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+
+    api.getSchedule(prevYear, prevMonth).then(setPrevMonthSchedule).catch(() => setPrevMonthSchedule(null));
+    api.getSchedule(nextYear, nextMonth).then(setNextMonthSchedule).catch(() => setNextMonthSchedule(null));
+  }, [year, month]);
 
   useEffect(() => {
     api.getConfiguration().then(setConfiguration).catch(() => {});
@@ -120,6 +133,21 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     return map;
   }, [schedule]);
 
+  // Build overflow assignment map from adjacent months
+  const overflowAssignmentsByDate = useMemo(() => {
+    const map = new Map<string, ShiftAssignment[]>();
+    const addAssignments = (schedule: MonthlySchedule | null) => {
+      if (!schedule) return;
+      schedule.assignments.forEach(a => {
+        if (!map.has(a.date)) map.set(a.date, []);
+        map.get(a.date)!.push(a);
+      });
+    };
+    addAssignments(prevMonthSchedule);
+    addAssignments(nextMonthSchedule);
+    return map;
+  }, [prevMonthSchedule, nextMonthSchedule]);
+
   // Get dates in month
   const datesInMonth = useMemo(() => {
     const dates: Date[] = [];
@@ -130,6 +158,31 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     }
     return dates;
   }, [year, month]);
+
+  // Compute leading overflow dates (last N days of previous month)
+  const leadingOverflowDates = useMemo(() => {
+    const offset = (datesInMonth[0].getDay() + 6) % 7;
+    if (offset === 0) return [];
+    const dates: Date[] = [];
+    const lastDayPrevMonth = new Date(year, month - 1, 0); // day 0 of current month = last day of prev month
+    for (let i = offset - 1; i >= 0; i--) {
+      dates.push(new Date(lastDayPrevMonth.getFullYear(), lastDayPrevMonth.getMonth(), lastDayPrevMonth.getDate() - i));
+    }
+    return dates;
+  }, [year, month, datesInMonth]);
+
+  // Compute trailing overflow dates (first M days of next month to complete the row)
+  const trailingOverflowDates = useMemo(() => {
+    const offset = (datesInMonth[0].getDay() + 6) % 7;
+    const totalCells = offset + datesInMonth.length;
+    const trailing = (7 - (totalCells % 7)) % 7;
+    if (trailing === 0) return [];
+    const dates: Date[] = [];
+    for (let i = 1; i <= trailing; i++) {
+      dates.push(new Date(year, month, i)); // month is 0-indexed for Date, but here month is 1-based, so month = next month's 0-indexed
+    }
+    return dates;
+  }, [year, month, datesInMonth]);
 
   // Calculate worker stats
   const workerStats = useMemo(() => {
@@ -222,18 +275,26 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     return holidays.find(h => h.date === dateStr);
   };
 
-  const DayCard = ({ date }: { date: Date }) => {
+  const todayStr = toDateStr(new Date());
+
+  const DayCard = ({ date, isOverflow, overflowAssignments }: { date: Date; isOverflow?: boolean; overflowAssignments?: ShiftAssignment[] }) => {
     const dateStr = toDateStr(date);
     const dayOfWeek = date.getDay();
-    const assignments = assignmentsByDate.get(dateStr) || [];
+    const assignments = isOverflow
+      ? (overflowAssignments || [])
+      : (assignmentsByDate.get(dateStr) || []);
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const holiday = getHolidayForDate(dateStr);
+    const isToday = dateStr === todayStr;
 
     const shiftOrder: ShiftType[] = ['day', 'evening', 'night'];
     const positionOrder: LinePosition[] = ['supervisor', 'first_line', 'second_line', 'third_line'];
 
     return (
-      <div className={`card-sharp p-3 ${holiday ? 'bg-clay-50/60 border-clay-200' : isWeekend ? 'bg-clay-50/30' : ''}`}>
+      <div
+        className={`card-sharp p-3 ${isOverflow ? 'opacity-40 pointer-events-none' : ''} ${holiday ? 'bg-clay-50/60 border-clay-200' : isWeekend ? 'bg-clay-50/30' : ''}`}
+        style={isToday ? { borderLeft: '4px solid var(--color-clinic-500)', backgroundColor: 'var(--color-clinic-50)' } : undefined}
+      >
         <div className="mb-3">
           <div className="text-xs font-semibold text-steel-500 uppercase">
             {DAY_NAMES_FULL[dayOfWeek]}
@@ -271,11 +332,11 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
                   <div className="space-y-1">
                     {shiftAssignments.map(a => {
                       const worker = getWorker(a.workerId);
-                      const isConflict = conflictedAssignmentIds.has(a.id);
+                      const isConflict = !isOverflow && conflictedAssignmentIds.has(a.id);
                       return (
                         <button
                           key={a.id}
-                          onClick={() => setEditingAssignment(a)}
+                          onClick={() => !isOverflow && setEditingAssignment(a)}
                           className={`w-full text-left px-2 py-1 text-xs border ${isConflict ? 'border-red-500 bg-clay-50' : POSITION_COLORS[a.position]} hover:opacity-80 transition-opacity`}
                         >
                           <span className="font-semibold">{POSITION_LABELS[a.position]}:</span>{' '}
@@ -429,8 +490,8 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
                 const holidayName = getHolidayName(dateStr);
 
                 return (
-                  <tr key={dateStr} className={`border-b border-steel-100 ${holidayOnDate ? 'bg-clay-50/40' : weekend ? 'bg-clay-50/20' : ''}`}>
-                    <td className="px-2 py-1.5 font-mono font-medium text-steel-700 whitespace-nowrap">
+                  <tr key={dateStr} className={`border-b ${holidayOnDate ? 'bg-clay-100/60 border-clay-200' : weekend ? 'bg-clay-100/40 border-clay-200' : 'border-steel-100'}`}>
+                    <td className={`px-2 py-1.5 font-mono font-medium whitespace-nowrap ${weekend || holidayOnDate ? 'text-clay-700' : 'text-steel-700'}`}>
                       {formatDateShort(dateStr)}
                       {holidayOnDate && (
                         <span className="ml-1 text-[10px] text-clay-600 font-semibold" title={holidayName}>H</span>
@@ -554,14 +615,29 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
               </div>
             ))}
 
-            {/* Empty cells for offset (Monday=0) */}
-            {Array.from({ length: (datesInMonth[0].getDay() + 6) % 7 }).map((_, i) => (
-              <div key={`empty-${i}`} />
+            {/* Leading overflow days from previous month */}
+            {leadingOverflowDates.map(date => (
+              <DayCard
+                key={`overflow-prev-${toDateStr(date)}`}
+                date={date}
+                isOverflow
+                overflowAssignments={overflowAssignmentsByDate.get(toDateStr(date))}
+              />
             ))}
 
             {/* Date cards */}
             {datesInMonth.map(date => (
               <DayCard key={date.toISOString()} date={date} />
+            ))}
+
+            {/* Trailing overflow days from next month */}
+            {trailingOverflowDates.map(date => (
+              <DayCard
+                key={`overflow-next-${toDateStr(date)}`}
+                date={date}
+                isOverflow
+                overflowAssignments={overflowAssignmentsByDate.get(toDateStr(date))}
+              />
             ))}
           </div>
         </>
