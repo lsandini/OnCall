@@ -8,13 +8,12 @@ function generateId(): string {
 export function createInitialWorkers(): Worker[] {
   const workers: Worker[] = [];
 
-  // 15 Senior Specialists
+  // 10 Senior Specialists
   const seniorNames = [
-    'Dr. Sarah Mitchell', 'Dr. James Cooper', 'Dr. Emily Watson',
-    'Dr. Michael Chen', 'Dr. Rachel Foster', 'Dr. David Park',
-    'Dr. Laura Bennett', 'Dr. Steven Clark', 'Dr. Maria Santos',
-    'Dr. Andrew Walsh', 'Dr. Jennifer Cole', 'Dr. Robert Hayes',
-    'Dr. Susan Miller', 'Dr. Paul Robinson', 'Dr. Karen Fisher'
+    'Dr. Matti Virtanen', 'Dr. Johanna Korhonen', 'Dr. Antti Mäkinen',
+    'Dr. Liisa Nieminen', 'Dr. Jukka Hämäläinen', 'Dr. Päivi Laine',
+    'Dr. Timo Heikkinen', 'Dr. Sari Koskinen', 'Dr. Markku Järvinen',
+    'Dr. Helena Lehtonen'
   ];
   seniorNames.forEach(name => {
     workers.push({
@@ -28,12 +27,11 @@ export function createInitialWorkers(): Worker[] {
     });
   });
 
-  // 10 Residents (permanent)
+  // 8 Residents (permanent)
   const residentNames = [
-    'Dr. Matt Reynolds', 'Dr. Sara Kim', 'Dr. Daniel Brooks',
-    'Dr. Anna Patel', 'Dr. Luke Harrison', 'Dr. Emma Carter',
-    'Dr. Fred Marshall', 'Dr. Lisa Torres', 'Dr. Simon Gray',
-    'Dr. Alice Murphy'
+    'Dr. Mikko Salonen', 'Dr. Elina Tuominen', 'Dr. Ville Lahtinen',
+    'Dr. Katri Ahonen', 'Dr. Juha Leppänen', 'Dr. Riikka Hiltunen',
+    'Dr. Petri Karjalainen', 'Dr. Outi Manninen'
   ];
   residentNames.forEach(name => {
     workers.push({
@@ -47,18 +45,16 @@ export function createInitialWorkers(): Worker[] {
     });
   });
 
-  // 10 Students (permanent)
+  // 8 Students (permanent)
   const studentNames = [
-    { name: 'Mark Evans', year: 6 },
-    { name: 'Julia Reed', year: 6 },
-    { name: 'Andy Shaw', year: 5 },
-    { name: 'Claire Young', year: 5 },
-    { name: 'Frank West', year: 5 },
-    { name: 'Martha Jordan', year: 4 },
-    { name: 'Tom Russell', year: 4 },
-    { name: 'Sophie Lane', year: 4 },
-    { name: 'Logan Scott', year: 6 },
-    { name: 'Beth Murray', year: 5 }
+    { name: 'Lauri Rantanen', year: 6 },
+    { name: 'Aino Kallio', year: 6 },
+    { name: 'Eero Salminen', year: 5 },
+    { name: 'Nea Väisänen', year: 5 },
+    { name: 'Oskari Mattila', year: 5 },
+    { name: 'Veera Hakala', year: 4 },
+    { name: 'Akseli Nurmi', year: 4 },
+    { name: 'Iida Ojala', year: 4 }
   ];
   studentNames.forEach(({ name, year }) => {
     workers.push({
@@ -73,31 +69,19 @@ export function createInitialWorkers(): Worker[] {
     });
   });
 
-  // 1 External Resident
-  workers.push({
-    id: generateId(),
-    name: 'Dr. Pete Valentine',
-    role: 'resident',
-    type: 'external',
-    canDoubleSift: true,
-    active: true,
-    createdAt: new Date().toISOString()
-  });
-
-  // 3 External Students
-  const externalStudents = [
-    { name: 'Ellie Morgan', year: 6 },
-    { name: 'Nick Palmer', year: 5 },
-    { name: 'Alex Grant', year: 5 }
+  // 2 External workers
+  const externals = [
+    { name: 'Dr. Samuli Ketonen', role: 'resident' as const, year: undefined },
+    { name: 'Roosa Peltola', role: 'student' as const, year: 5 }
   ];
-  externalStudents.forEach(({ name, year }) => {
+  externals.forEach(({ name, role, year }) => {
     workers.push({
       id: generateId(),
       name,
-      role: 'student',
+      role,
       type: 'external',
       canDoubleSift: true,
-      yearOfStudy: year,
+      ...(year !== undefined && { yearOfStudy: year }),
       active: true,
       createdAt: new Date().toISOString()
     });
