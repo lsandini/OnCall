@@ -90,6 +90,11 @@ export function createSchedulesRouter(
     const lastDay = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
     const holidays = holidayRepo.getByDateRange(firstDay, lastDay, country);
 
+    // Get previous month's schedule for consecutive weekend check
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const prevSchedule = scheduleRepo.getByMonth(prevYear, prevMonth);
+
     const updated = fillScheduleGaps(
       year,
       month,
@@ -97,7 +102,8 @@ export function createSchedulesRouter(
       workers,
       availability,
       configuration,
-      holidays
+      holidays,
+      prevSchedule?.assignments
     );
 
     scheduleRepo.save(updated);

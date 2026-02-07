@@ -1,5 +1,5 @@
 #!/bin/bash
 
 git add .
-git commit -m "add copyright in footer"
+git commit -m "avoid working on consecutive weekends, unless preferred"
 git push -u origin main

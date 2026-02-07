@@ -96,6 +96,40 @@ function isWorkerAssignedOnDate(
   return assignments.some(a => a.workerId === workerId && a.date === date);
 }
 
+// Format date as YYYY-MM-DD
+function formatDateStr(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+// Check if worker was assigned on the previous weekend (Sat/Sun 7 days back)
+function workedPreviousWeekend(
+  workerId: string,
+  date: Date,
+  currentAssignments: ShiftAssignment[],
+  previousMonthAssignments: ShiftAssignment[]
+): boolean {
+  const dayOfWeek = date.getDay();
+  if (dayOfWeek !== 0 && dayOfWeek !== 6) return false;
+
+  // Find the Saturday of the current weekend
+  const currentSat = new Date(date);
+  if (dayOfWeek === 0) currentSat.setDate(currentSat.getDate() - 1);
+
+  // Previous weekend's Saturday and Sunday
+  const prevSat = new Date(currentSat);
+  prevSat.setDate(prevSat.getDate() - 7);
+  const prevSun = new Date(prevSat);
+  prevSun.setDate(prevSun.getDate() + 1);
+
+  const prevSatStr = formatDateStr(prevSat);
+  const prevSunStr = formatDateStr(prevSun);
+
+  const allAssignments = [...currentAssignments, ...previousMonthAssignments];
+  return allAssignments.some(a =>
+    a.workerId === workerId && (a.date === prevSatStr || a.date === prevSunStr)
+  );
+}
+
 // Check if worker is assigned to a specific shift
 function isWorkerAssignedToShift(
   workerId: string,
@@ -124,6 +158,12 @@ export function generateMonthlySchedule(
   // Track shift counts for balancing
   const shiftCounts: Map<string, number> = new Map();
   activeWorkers.forEach(w => shiftCounts.set(w.id, 0));
+
+  // Get previous month's assignments for consecutive weekend check
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear = month === 1 ? year - 1 : year;
+  const prevSchedule = existingSchedules.find(s => s.year === prevYear && s.month === prevMonth);
+  const previousMonthAssignments = prevSchedule?.assignments || [];
 
   // Use configuration's daily requirements if provided
   const dailyRequirements = configuration?.dailyRequirements || [];
@@ -157,6 +197,12 @@ export function generateMonthlySchedule(
           if (position !== 'supervisor') {
             const hasOtherShift = isWorkerAssignedOnDate(w.id, dateStr, assignments);
             if (hasOtherShift && !w.canDoubleSift) return false;
+          }
+
+          // No consecutive weekends unless worker marked preferred
+          if (workedPreviousWeekend(w.id, date, assignments, previousMonthAssignments)) {
+            const avail = getWorkerAvailability(w, availability, date, shiftType);
+            if (avail !== 'preferred') return false;
           }
 
           return true;
@@ -238,8 +284,10 @@ export function fillScheduleGaps(
   workers: Worker[],
   availability: WeeklyAvailability[],
   configuration?: ShiftConfiguration,
-  holidays?: { date: string; name: string }[]
+  holidays?: { date: string; name: string }[],
+  previousMonthAssignments?: ShiftAssignment[]
 ): MonthlySchedule {
+  const prevAssignments = previousMonthAssignments || [];
   const dates = getDatesInMonth(year, month);
   const activeWorkers = workers.filter(w => w.active);
   const dailyRequirements = configuration?.dailyRequirements || [];
@@ -296,6 +344,12 @@ export function fillScheduleGaps(
           if (position !== 'supervisor') {
             const hasOtherShift = isWorkerAssignedOnDate(w.id, dateStr, allAssignments);
             if (hasOtherShift && !w.canDoubleSift) return false;
+          }
+
+          // No consecutive weekends unless worker marked preferred
+          if (workedPreviousWeekend(w.id, date, allAssignments, prevAssignments)) {
+            const avail = getWorkerAvailability(w, availability, date, shiftType);
+            if (avail !== 'preferred') return false;
           }
 
           return true;
