@@ -88,3 +88,18 @@ body {
 .badge {
   @apply inline-flex items-center px-2.5 py-0.5 text-xs font-medium border;
 }
+
+/* Print styles — hide chrome, keep content layout intact */
+@media print {
+  body {
+    background: white !important;
+  }
+
+  header, nav, footer {
+    display: none !important;
+  }
+
+  .card-sharp {
+    box-shadow: none !important;
+  }
+}

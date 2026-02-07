@@ -1,5 +1,5 @@
 #!/bin/bash
 
 git add .
-git commit -m "first try at i18n implementation"
+git commit -m "simplify printed output"
 git push -u origin main

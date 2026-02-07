@@ -548,7 +548,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
   return (
     <div>
       {/* Toolbar */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 print:hidden">
         <div>
           <h2 className="text-2xl font-bold text-steel-900">
             {monthNames[month - 1]} {year}
