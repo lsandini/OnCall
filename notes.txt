@@ -1,0 +1,9 @@
+ 
+// installs in both folders 
+npm install --prefix backend && npm install --prefix frontend 
+
+
+// execute in root folder
+docker buildx build --platform linux/arm64,linux/amd64 -t lsandini/oncall-backend:latest --push backend/
+docker buildx build --platform linux/arm64,linux/amd64 -t lsandini/oncall-frontend:latest --push frontend/
+

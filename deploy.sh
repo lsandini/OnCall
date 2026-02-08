@@ -1,5 +1,5 @@
 #!/bin/bash
 
 git add .
-git commit -m "created Dockerfiles and removed useless dependencies in backend"
+git commit -m "added TODO.md and notes.txt"
 git push -u origin main
