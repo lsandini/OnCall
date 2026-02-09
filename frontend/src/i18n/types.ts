@@ -116,6 +116,9 @@ export interface Translations {
     noScheduleDesc: string;
     generated: string;
     regenerateConfirm: string;
+    deleteSchedule: string;
+    deleteScheduleConfirm: string;
+    failedDelete: string;
     failedGenerate: string;
     failedFillGaps: string;
     failedUpdate: string;

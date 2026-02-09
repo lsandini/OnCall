@@ -23,6 +23,7 @@ interface Props {
   onScheduleChange: () => void;
   clinicId: string;
   clinicName: string;
+  adminMode: boolean;
 }
 
 type ViewMode = 'calendar' | 'list' | 'distribution';
@@ -35,12 +36,14 @@ function toDateStr(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-export default function ScheduleTab({ workers, schedule, schedules, year, month, onScheduleChange, clinicId, clinicName }: Props) {
+export default function ScheduleTab({ workers, schedule, schedules, year, month, onScheduleChange, clinicId, clinicName, adminMode }: Props) {
   const [generating, setGenerating] = useState(false);
   const [fillingGaps, setFillingGaps] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [editingAssignment, setEditingAssignment] = useState<ShiftAssignment | null>(null);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [configuration, setConfiguration] = useState<ShiftConfiguration | null>(null);
   const [availability, setAvailability] = useState<WeeklyAvailability[]>([]);
@@ -113,6 +116,19 @@ export default function ScheduleTab({ workers, schedule, schedules, year, month,
       alert(t('schedule.failedGenerate'));
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleDeleteSchedule = async () => {
+    setShowDeleteConfirm(false);
+    setDeleting(true);
+    try {
+      await api.deleteSchedule(clinicId, year, month);
+      onScheduleChange();
+    } catch (e) {
+      alert(t('schedule.failedDelete'));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -699,13 +715,28 @@ export default function ScheduleTab({ workers, schedule, schedules, year, month,
             </button>
           )}
 
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="h-10 px-4 border-2 border-clinic-500 bg-clinic-500 text-sm text-white font-semibold hover:bg-clinic-600 hover:border-clinic-600 transition-colors shadow-sharp disabled:opacity-50"
-          >
-            {generating ? t('schedule.generating') : schedule ? t('schedule.regenerate') : t('schedule.generate')}
-          </button>
+          {adminMode && schedule && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={deleting}
+              className="h-10 px-4 border-2 border-clay-500 text-sm text-clay-600 font-semibold hover:bg-clay-50 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              {t('schedule.deleteSchedule')}
+            </button>
+          )}
+
+          {(!schedule || adminMode) && (
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="h-10 px-4 border-2 border-clinic-500 bg-clinic-500 text-sm text-white font-semibold hover:bg-clinic-600 hover:border-clinic-600 transition-colors shadow-sharp disabled:opacity-50"
+            >
+              {generating ? t('schedule.generating') : schedule ? t('schedule.regenerate') : t('schedule.generate')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -796,6 +827,36 @@ export default function ScheduleTab({ workers, schedule, schedules, year, month,
                 className="px-4 py-2 border-2 border-clay-500 bg-clay-500 text-sm font-semibold text-white hover:bg-clay-600 hover:border-clay-600 transition-colors shadow-sharp"
               >
                 {t('schedule.regenerate')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-steel-900/50 flex items-center justify-center z-50">
+          <div className="bg-white border-2 border-clay-300 shadow-sharp-lg w-full max-w-sm mx-4">
+            <div className="px-6 py-5">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-clay-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                <h3 className="font-bold text-steel-900">{t('schedule.deleteSchedule')}</h3>
+              </div>
+              <p className="text-sm text-steel-600">{t('schedule.deleteScheduleConfirm')}</p>
+            </div>
+            <div className="px-6 py-4 border-t border-steel-200 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 border-2 border-steel-200 text-sm font-semibold text-steel-600 hover:bg-steel-50 transition-colors"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleDeleteSchedule}
+                className="px-4 py-2 border-2 border-clay-600 bg-clay-600 text-sm font-semibold text-white hover:bg-clay-700 hover:border-clay-700 transition-colors shadow-sharp"
+              >
+                {t('schedule.deleteSchedule')}
               </button>
             </div>
           </div>

@@ -90,6 +90,11 @@ export function useApi() {
       body: JSON.stringify({ workerId })
     }), [fetchJson]);
 
+  const deleteSchedule = useCallback((clinicId: string, year: number, month: number) =>
+    fetchJson(`/schedules/${year}/${month}?clinicId=${encodeURIComponent(clinicId)}`, {
+      method: 'DELETE'
+    }), [fetchJson]);
+
   // Calendar
   const getWeeks = useCallback((year: number) =>
     fetchJson<CalendarWeek[]>(`/calendar/weeks/${year}`), [fetchJson]);
@@ -155,6 +160,7 @@ export function useApi() {
     generateSchedule,
     fillScheduleGaps,
     updateAssignment,
+    deleteSchedule,
     getWeeks,
     getConfiguration,
     getAllConfigurations,

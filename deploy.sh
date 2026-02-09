@@ -1,5 +1,5 @@
 #!/bin/bash
 
 git add .
-git commit -m "refined attribution logic, warning on schedule regenerate"
+git commit -m "added Delete Schedule, visible only in admin mode"
 git push -u origin main

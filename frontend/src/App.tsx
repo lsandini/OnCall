@@ -306,6 +306,7 @@ export default function App() {
             onScheduleChange={loadSchedules}
             clinicId={selectedClinicId}
             clinicName={selectedClinic ? getClinicDisplayName(selectedClinic.name, translations) : ''}
+            adminMode={adminMode}
           />
         )}
         {selectedClinicId && activeTab === 'configuration' && (
