@@ -1,5 +1,5 @@
 #!/bin/bash
 
 git add .
-git commit -m "completed stack for MS auth"
+git commit -m "add alternative nginx configuration for docker locally"
 git push -u origin main
