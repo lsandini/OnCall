@@ -10,9 +10,14 @@ export function useApi() {
       headers['Content-Type'] = 'application/json';
     }
     const res = await fetch(`${API_BASE}${url}`, {
+      credentials: 'include',
       headers,
       ...options
     });
+    if (res.status === 401) {
+      window.location.href = '/welcome';
+      throw new Error('Unauthorized');
+    }
     if (!res.ok) {
       let msg = `HTTP ${res.status}`;
       try {

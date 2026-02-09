@@ -218,6 +218,17 @@ export default function App() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                 </svg>
               </button>
+
+              {/* Logout */}
+              <button
+                onClick={() => { window.location.href = '/api/auth/logout'; }}
+                className="h-10 w-10 flex items-center justify-center border-2 border-steel-200 text-steel-400 hover:text-clay-600 hover:border-clay-300 hover:bg-clay-50 transition-colors"
+                title={t('auth.logout')}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>

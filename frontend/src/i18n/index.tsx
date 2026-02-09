@@ -31,7 +31,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   // Load language from backend settings on mount
   useEffect(() => {
-    fetch('/api/config/settings')
+    fetch('/api/config/settings', { credentials: 'include' })
       .then(res => res.json())
       .then((settings: Record<string, string>) => {
         if (settings.language === 'fi' || settings.language === 'en') {
@@ -47,6 +47,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     // Persist to backend
     fetch('/api/config/settings', {
       method: 'PUT',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ language: newLocale }),
     }).catch(() => {});

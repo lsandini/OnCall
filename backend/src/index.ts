@@ -1,5 +1,11 @@
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+dotenv.config({ path: resolve(dirname(fileURLToPath(import.meta.url)), '../../.env') });
+
 import express from 'express';
 import cors from 'cors';
+import session from 'express-session';
 import { openDatabase } from './db/connection.js';
 import { seedIfEmpty } from './db/seed.js';
 import { createWorkerRepo } from './repositories/workerRepo.js';
@@ -14,13 +20,29 @@ import { createAvailabilityRouter } from './routes/availability.js';
 import { createSchedulesRouter } from './routes/schedules.js';
 import { createConfigRouter } from './routes/config.js';
 import { createClinicsRouter } from './routes/clinics.js';
+import { createAuthRouter } from './routes/auth.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: FRONTEND_URL,
+  credentials: true,
+}));
 app.use(express.json());
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  },
+}));
 
 // Database
 const db = openDatabase();
@@ -36,6 +58,15 @@ const settingsRepo = createSettingsRepo(db);
 const clinicRepo = createClinicRepo(db);
 
 // Routes
+app.use('/api/auth', createAuthRouter());
+
+// Auth middleware — protect all routes below this point
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/auth') || req.path === '/health') return next();
+  if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+});
+
 app.use('/api/clinics', createClinicsRouter(clinicRepo));
 app.use('/api/workers', createWorkersRouter(workerRepo));
 app.use('/api/availability', createAvailabilityRouter(availabilityRepo));

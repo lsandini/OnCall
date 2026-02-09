@@ -218,6 +218,9 @@ export const en: Translations = {
     failedRename: 'Failed to rename clinic',
     failedDelete: 'Failed to delete clinic',
   },
+  auth: {
+    logout: 'Log out',
+  },
   specialties: {
     internalMedicine: 'Internal Medicine',
     surgery: 'Surgery',

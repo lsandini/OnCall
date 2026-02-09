@@ -218,6 +218,9 @@ export interface Translations {
     failedRename: string;
     failedDelete: string;
   };
+  auth: {
+    logout: string;
+  };
   specialties: {
     internalMedicine: string;
     surgery: string;

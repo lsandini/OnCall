@@ -218,6 +218,9 @@ export const fi: Translations = {
     failedRename: 'Klinikan nimeäminen epäonnistui',
     failedDelete: 'Klinikan poistaminen epäonnistui',
   },
+  auth: {
+    logout: 'Kirjaudu ulos',
+  },
   specialties: {
     internalMedicine: 'Sisätaudit',
     surgery: 'Kirurgia',
