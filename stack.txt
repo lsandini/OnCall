@@ -22,6 +22,13 @@ services:
     volumes:
       - oncall-data:/app/data
     environment:
+      - AZURE_CLIENT_ID=your-azure-client-id
+      - AZURE_TENANT_ID=your azure-tenent-id
+      # AZURE_TENANT_ID=common or organizations or consumers
+      - AZURE_CLIENT_SECRET=your-azure-client-secret-value
+      - REDIRECT_URI=http://localhost:3001/api/auth/callback
+      - SESSION_SECRET=your-session-secret
+      - FRONTEND_URL=http://localhost:5173      
       - NODE_ENV=production
       - PORT=3001
     networks:

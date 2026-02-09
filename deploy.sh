@@ -1,5 +1,5 @@
 #!/bin/bash
 
 git add .
-git commit -m "added Delete Schedule, visible only in admin mode"
+git commit -m "completed stack for MS auth"
 git push -u origin main
