@@ -1,11 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { Worker, MonthlySchedule, ShiftAssignment, ShiftType, LinePosition, Holiday, ShiftConfiguration, WeeklyAvailability } from '../types';
 import { useApi } from '../hooks/useApi';
 import {
   getMonthNames,
   getDayNamesFull,
   getDayNames,
-  getRoleLabels,
   getPositionLabels,
   getShiftName,
   getWeekNumber,
@@ -18,6 +17,7 @@ import { useTranslation } from '../i18n';
 interface Props {
   workers: Worker[];
   schedule: MonthlySchedule | undefined;
+  schedules: MonthlySchedule[];
   year: number;
   month: number;
   onScheduleChange: () => void;
@@ -35,11 +35,12 @@ function toDateStr(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-export default function ScheduleTab({ workers, schedule, year, month, onScheduleChange, clinicId, clinicName }: Props) {
+export default function ScheduleTab({ workers, schedule, schedules, year, month, onScheduleChange, clinicId, clinicName }: Props) {
   const [generating, setGenerating] = useState(false);
   const [fillingGaps, setFillingGaps] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [editingAssignment, setEditingAssignment] = useState<ShiftAssignment | null>(null);
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [configuration, setConfiguration] = useState<ShiftConfiguration | null>(null);
   const [availability, setAvailability] = useState<WeeklyAvailability[]>([]);
@@ -52,7 +53,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
   const dayNamesFull = getDayNamesFull(translations);
   const dayNamesShort = getDayNames(translations);
   const positionLabels = getPositionLabels(translations);
-  const roleLabels = getRoleLabels(translations);
+
 
   useEffect(() => {
     api.getHolidays(year).then(setHolidays).catch(() => setHolidays([]));
@@ -94,7 +95,16 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     return labels;
   }, [configuration, translations]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
+    if (schedule) {
+      setShowRegenerateConfirm(true);
+      return;
+    }
+    doGenerate();
+  };
+
+  const doGenerate = async () => {
+    setShowRegenerateConfirm(false);
     setGenerating(true);
     try {
       await api.generateSchedule(clinicId, year, month);
@@ -192,15 +202,43 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
     return dates;
   }, [year, month, datesInMonth]);
 
-  // Calculate worker stats
+  // Determine if a date string is a weekend or holiday
+  const holidayDates = useMemo(() => new Set(holidays.map(h => h.date)), [holidays]);
+  const isWeekendOrHoliday = (dateStr: string): boolean => {
+    if (holidayDates.has(dateStr)) return true;
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dow = new Date(y, m - 1, d).getDay();
+    return dow === 0 || dow === 6;
+  };
+
+  // Calculate worker stats split by weekday/weekend+holiday
   const workerStats = useMemo(() => {
-    if (!schedule) return new Map<string, number>();
-    const stats = new Map<string, number>();
+    if (!schedule) return new Map<string, { weekday: number; weekend: number }>();
+    const stats = new Map<string, { weekday: number; weekend: number }>();
     schedule.assignments.forEach(a => {
-      stats.set(a.workerId, (stats.get(a.workerId) || 0) + 1);
+      const prev = stats.get(a.workerId) || { weekday: 0, weekend: 0 };
+      if (isWeekendOrHoliday(a.date)) prev.weekend++;
+      else prev.weekday++;
+      stats.set(a.workerId, prev);
     });
     return stats;
-  }, [schedule]);
+  }, [schedule, holidayDates]);
+
+  // Calculate cumulative year-to-date stats (Jan through selected month)
+  const ytdStats = useMemo(() => {
+    const stats = new Map<string, { weekday: number; weekend: number }>();
+    for (const s of schedules) {
+      if (s.year === year && s.month >= 1 && s.month <= month) {
+        s.assignments.forEach(a => {
+          const prev = stats.get(a.workerId) || { weekday: 0, weekend: 0 };
+          if (isWeekendOrHoliday(a.date)) prev.weekend++;
+          else prev.weekday++;
+          stats.set(a.workerId, prev);
+        });
+      }
+    }
+    return stats;
+  }, [schedules, year, month, holidayDates]);
 
   // Detect assignments where the worker is now unavailable (gaps)
   const conflictedAssignmentIds = useMemo(() => {
@@ -261,7 +299,7 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
               >
                 <div className="font-medium text-steel-900">{w.name}</div>
                 <div className="text-xs text-steel-500 font-mono">
-                  {workerStats.get(w.id) || 0} {t('schedule.shiftsThisMonth')}
+                  {((s) => s ? s.weekday + s.weekend : 0)(workerStats.get(w.id))} {t('schedule.shiftsThisMonth')}
                 </div>
               </button>
             ))}
@@ -378,9 +416,39 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
 
 
   const WorkerLoadTable = () => {
-    const sortedWorkers = [...workers]
-      .filter(w => w.active && workerStats.has(w.id))
-      .sort((a, b) => (workerStats.get(b.id) || 0) - (workerStats.get(a.id) || 0));
+    const activeWithStats = workers.filter(w => w.active && (workerStats.has(w.id) || ytdStats.has(w.id)));
+
+    // Group by role in order: senior_specialist (supervisors), resident, student
+    const roleOrder: Array<{ role: Worker['role']; label: string; bgClass: string; textClass: string; countClass: string }> = [
+      { role: 'senior_specialist', label: t('workers.supervisorsLabel'), bgClass: 'bg-clay-50', textClass: 'text-clay-700', countClass: 'text-clay-400' },
+      { role: 'resident', label: t('workers.residentsLabel'), bgClass: 'bg-steel-100', textClass: 'text-steel-700', countClass: 'text-steel-400' },
+      { role: 'student', label: t('workers.studentsLabel'), bgClass: 'bg-clinic-50', textClass: 'text-clinic-700', countClass: 'text-clinic-400' },
+    ];
+
+    const groups = roleOrder
+      .map(({ role, label, bgClass, textClass, countClass }) => ({
+        role,
+        label,
+        bgClass,
+        textClass,
+        countClass,
+        workers: activeWithStats
+          .filter(w => w.role === role)
+          .sort((a, b) => {
+            const aTotal = ((s) => s ? s.weekday + s.weekend : 0)(workerStats.get(b.id));
+            const bTotal = ((s) => s ? s.weekday + s.weekend : 0)(workerStats.get(a.id));
+            return aTotal - bTotal;
+          }),
+      }))
+      .filter(g => g.workers.length > 0);
+
+    if (groups.length === 0) {
+      return (
+        <div className="card-sharp p-8 text-center text-steel-400 text-sm">
+          {t('schedule.noStatsYet')}
+        </div>
+      );
+    }
 
     return (
       <div className="card-sharp overflow-hidden">
@@ -388,19 +456,55 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
           <thead>
             <tr className="bg-steel-50">
               <th className="px-4 py-3 text-left text-xs font-semibold text-steel-600 uppercase">{t('workers.name')}</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-steel-600 uppercase">{t('workers.role')}</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-steel-600 uppercase">{t('schedule.shifts_col')}</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-steel-600 uppercase">{t('workers.type')}</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-steel-600 uppercase">
+                <div>{t('schedule.monthColumn')}</div>
+                <div className="font-normal normal-case text-steel-400">{t('schedule.statsColumnHint')}</div>
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-steel-600 uppercase">
+                <div>{t('schedule.ytdColumn')}</div>
+                <div className="font-normal normal-case text-steel-400">{t('schedule.statsColumnHint')}</div>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {sortedWorkers.map(w => (
-              <tr key={w.id} className="border-t border-steel-100 hover:bg-steel-50">
-                <td className="px-4 py-3 font-medium text-steel-900">{w.name}</td>
-                <td className="px-4 py-3 text-sm text-steel-500 font-mono uppercase">{roleLabels[w.role]}</td>
-                <td className="px-4 py-3 text-right">
-                  <span className="font-mono font-bold text-clinic-600">{workerStats.get(w.id) || 0}</span>
-                </td>
-              </tr>
+            {groups.map(group => (
+              <Fragment key={group.role}>
+                <tr className={group.bgClass}>
+                  <td colSpan={4} className={`px-4 py-2 text-xs font-bold ${group.textClass} uppercase tracking-wide`}>
+                    {group.label}
+                    <span className={`ml-2 font-normal ${group.countClass}`}>({group.workers.length})</span>
+                  </td>
+                </tr>
+                {group.workers.map(w => {
+                  const ms = workerStats.get(w.id) || { weekday: 0, weekend: 0 };
+                  const ys = ytdStats.get(w.id) || { weekday: 0, weekend: 0 };
+                  return (
+                    <tr key={w.id} className="border-t border-steel-100 hover:bg-steel-50">
+                      <td className="px-4 py-2.5 font-medium text-steel-900">{w.name}</td>
+                      <td className="px-4 py-2.5 text-xs text-steel-500 font-mono uppercase">
+                        {w.type === 'external' ? t('workers.external') : t('workers.permanent')}
+                      </td>
+                      <td className="px-4 py-2.5 text-left font-mono">
+                        <span className="font-bold text-steel-800">{ms.weekday + ms.weekend}</span>
+                        <span className="text-steel-300 ml-1">(</span>
+                        <span className="text-clinic-600">{ms.weekday}</span>
+                        <span className="text-steel-300">+</span>
+                        <span className="text-clay-500">{ms.weekend}</span>
+                        <span className="text-steel-300">)</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-left font-mono">
+                        <span className="font-bold text-steel-800">{ys.weekday + ys.weekend}</span>
+                        <span className="text-steel-300 ml-1">(</span>
+                        <span className="text-clinic-600">{ys.weekday}</span>
+                        <span className="text-steel-300">+</span>
+                        <span className="text-clay-500">{ys.weekend}</span>
+                        <span className="text-steel-300">)</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -659,10 +763,12 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
         </>
       ) : viewMode === 'list' ? (
         <>
-
-          <h3 className="text-sm font-bold text-steel-700 uppercase tracking-wide mb-4">
+          <h3 className="text-sm font-bold text-steel-700 uppercase tracking-wide mb-1">
             {t('schedule.workerLoadDistribution')}
           </h3>
+          <p className="text-xs text-steel-400 mb-4">
+            {t('schedule.statsDescription')}
+          </p>
           <WorkerLoadTable />
         </>
       ) : (
@@ -670,6 +776,31 @@ export default function ScheduleTab({ workers, schedule, year, month, onSchedule
       )}
 
       {editingAssignment && <EligibleWorkerSelector assignment={editingAssignment} />}
+
+      {showRegenerateConfirm && (
+        <div className="fixed inset-0 bg-steel-900/50 flex items-center justify-center z-50">
+          <div className="bg-white border-2 border-steel-200 shadow-sharp-lg w-full max-w-sm mx-4">
+            <div className="px-6 py-5">
+              <h3 className="font-bold text-steel-900 mb-2">{t('schedule.regenerate')}</h3>
+              <p className="text-sm text-steel-600">{t('schedule.regenerateConfirm')}</p>
+            </div>
+            <div className="px-6 py-4 border-t border-steel-200 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowRegenerateConfirm(false)}
+                className="px-4 py-2 border-2 border-steel-200 text-sm font-semibold text-steel-600 hover:bg-steel-50 transition-colors"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={doGenerate}
+                className="px-4 py-2 border-2 border-clay-500 bg-clay-500 text-sm font-semibold text-white hover:bg-clay-600 hover:border-clay-600 transition-colors shadow-sharp"
+              >
+                {t('schedule.regenerate')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

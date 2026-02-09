@@ -115,6 +115,7 @@ export interface Translations {
     noScheduleYet: string;
     noScheduleDesc: string;
     generated: string;
+    regenerateConfirm: string;
     failedGenerate: string;
     failedFillGaps: string;
     failedUpdate: string;
@@ -132,6 +133,11 @@ export interface Translations {
     date: string;
     shifts_col: string;
     nightCol: string;
+    statsDescription: string;
+    monthColumn: string;
+    ytdColumn: string;
+    statsColumnHint: string;
+    noStatsYet: string;
   };
   config: {
     regionAndHolidays: string;

@@ -300,6 +300,7 @@ export default function App() {
           <ScheduleTab
             workers={workers}
             schedule={currentSchedule}
+            schedules={schedules}
             year={selectedYear}
             month={selectedMonth}
             onScheduleChange={loadSchedules}

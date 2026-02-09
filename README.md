@@ -64,6 +64,37 @@ The shift structure is fully configurable per clinic. The default configuration:
 - **Worker types**: Permanent staff, External (can do evening+night double shifts)
 - **Availability**: Available (default), Preferred, Unavailable
 
+## Scheduling Logic
+
+The scheduler is a pure function that takes workers, availability, configuration, and holidays as input and produces a complete monthly roster. Each required slot (date + shift type + position) is filled by scoring all eligible workers and selecting the best candidate.
+
+**Eligibility filters** (hard constraints — worker is excluded if any apply):
+- Not employed on the date (outside start/end dates)
+- Cannot fill the position (role mismatch)
+- Already assigned to the same shift on the same date
+- Already assigned another shift that day (unless external with double-shift capability)
+- Worked the previous weekend and not marked as preferred
+
+**Scoring factors** (soft constraints — influence selection, higher is better):
+
+| Factor | Effect |
+|--------|--------|
+| Preferred availability | +100 |
+| Available (default) | +50 |
+| Unavailable | -1000 |
+| Shift load rate (shifts / employed days) | -rate x 300 |
+| Permanent staff bonus | +5 |
+| Adjacent-day assignment (not preferred) | -30 |
+
+**Fairness mechanisms:**
+- **Previous-month carry-over**: Shift counts are seeded from the prior month's assignments, so a worker who was heavily loaded last month starts at a disadvantage
+- **Proportional balancing**: Shift load is normalized by employed days — a worker present 15 days gets roughly half the shifts of one present 31 days
+- **Randomized tie-breaking**: Workers with equal scores are shuffled randomly, preventing array-order bias across regenerations
+- **Consecutive-day spreading**: Workers already assigned the day before or after receive a penalty, encouraging rest gaps
+- **Consecutive-weekend blocking**: Workers who worked the previous weekend are excluded unless they marked the day as preferred
+
+Public holidays use Sunday's position requirements. Gap-filling reuses the same logic, preserving existing valid assignments and only filling empty slots.
+
 ## Application Tabs
 
 - **Personnel**: List, filter, add/edit workers. Set availability via monthly calendar. Workers only appear in months where their employment dates overlap.

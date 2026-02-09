@@ -67,6 +67,11 @@ function isWorkerEmployedOnDate(worker: Worker, date: Date): boolean {
   return date >= startDate && date <= endDate;
 }
 
+// Count how many days of the given date range the worker is employed
+function countEmployedDays(worker: Worker, dates: Date[]): number {
+  return dates.filter(d => isWorkerEmployedOnDate(worker, d)).length;
+}
+
 // Check if worker can fill a position
 function canFillPosition(worker: Worker, position: LinePosition): boolean {
   switch (position) {
@@ -81,11 +86,6 @@ function canFillPosition(worker: Worker, position: LinePosition): boolean {
     default:
       return false;
   }
-}
-
-// Count shifts assigned to a worker in the current schedule
-function countWorkerShifts(workerId: string, assignments: ShiftAssignment[]): number {
-  return assignments.filter(a => a.workerId === workerId).length;
 }
 
 // Check if worker is already assigned on this date
@@ -131,6 +131,27 @@ function workedPreviousWeekend(
   );
 }
 
+// Check if worker was assigned on the day before or after a given date
+function workedAdjacentDay(
+  workerId: string,
+  date: Date,
+  currentAssignments: ShiftAssignment[],
+  previousMonthAssignments: ShiftAssignment[]
+): boolean {
+  const prevDay = new Date(date);
+  prevDay.setDate(prevDay.getDate() - 1);
+  const nextDay = new Date(date);
+  nextDay.setDate(nextDay.getDate() + 1);
+
+  const prevDayStr = formatDateStr(prevDay);
+  const nextDayStr = formatDateStr(nextDay);
+
+  const allAssignments = [...currentAssignments, ...previousMonthAssignments];
+  return allAssignments.some(a =>
+    a.workerId === workerId && (a.date === prevDayStr || a.date === nextDayStr)
+  );
+}
+
 // Check if worker is assigned to a specific shift
 function isWorkerAssignedToShift(
   workerId: string,
@@ -156,15 +177,20 @@ export function generateMonthlySchedule(
   const dates = getDatesInMonth(year, month);
   const activeWorkers = workers.filter(w => w.active);
 
-  // Track shift counts for balancing
-  const shiftCounts: Map<string, number> = new Map();
-  activeWorkers.forEach(w => shiftCounts.set(w.id, 0));
-
-  // Get previous month's assignments for consecutive weekend check
+  // Get previous month's assignments for consecutive weekend check and burden seeding
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
   const prevSchedule = existingSchedules.find(s => s.year === prevYear && s.month === prevMonth);
   const previousMonthAssignments = prevSchedule?.assignments || [];
+
+  // Track shift counts for balancing — seed from previous month's burden
+  const shiftCounts: Map<string, number> = new Map();
+  activeWorkers.forEach(w => shiftCounts.set(w.id, 0));
+  previousMonthAssignments.forEach(a => {
+    if (shiftCounts.has(a.workerId)) {
+      shiftCounts.set(a.workerId, (shiftCounts.get(a.workerId) || 0) + 1);
+    }
+  });
 
   // Use configuration's daily requirements if provided
   const dailyRequirements = configuration?.dailyRequirements || [];
@@ -223,17 +249,24 @@ export function generateMonthlySchedule(
           else if (avail === 'available') score += 50;
           else if (avail === 'unavailable') score -= 1000; // Strong penalty
 
-          // Balance scoring - prefer workers with fewer shifts
-          score -= currentShifts * 10;
+          // Balance scoring — normalize by employed days so part-month workers get proportional load
+          const employedDays = countEmployedDays(w, dates);
+          const shiftRate = employedDays > 0 ? (currentShifts / employedDays) : 0;
+          score -= shiftRate * 300;
 
           // Slight preference for permanent staff over external
           if (w.type === 'permanent') score += 5;
+
+          // Penalize consecutive days (unless worker marked preferred)
+          if (workedAdjacentDay(w.id, date, assignments, previousMonthAssignments)) {
+            if (avail !== 'preferred') score -= 30;
+          }
 
           return { worker: w, score };
         });
 
         // Sort by score (descending), shuffling ties randomly
-        scoredWorkers.sort((a, b) => b.score - a.score || 0);
+        scoredWorkers.sort((a, b) => b.score - a.score || Math.random() - 0.5);
 
         const selected = scoredWorkers[0];
         if (selected && selected.score > -500) { // Don't assign if only unavailable workers
@@ -303,9 +336,14 @@ export function fillScheduleGaps(
     return avail !== 'unavailable';
   });
 
-  // Step 2: Initialize shift counts from kept assignments
+  // Step 2: Initialize shift counts from kept assignments + previous month's burden
   const shiftCounts: Map<string, number> = new Map();
   activeWorkers.forEach(w => shiftCounts.set(w.id, 0));
+  prevAssignments.forEach(a => {
+    if (shiftCounts.has(a.workerId)) {
+      shiftCounts.set(a.workerId, (shiftCounts.get(a.workerId) || 0) + 1);
+    }
+  });
   keptAssignments.forEach(a => {
     shiftCounts.set(a.workerId, (shiftCounts.get(a.workerId) || 0) + 1);
   });
@@ -367,13 +405,22 @@ export function fillScheduleGaps(
           else if (avail === 'available') score += 50;
           else if (avail === 'unavailable') score -= 1000;
 
-          score -= currentShifts * 10;
+          // Balance scoring — normalize by employed days
+          const employedDays = countEmployedDays(w, dates);
+          const shiftRate = employedDays > 0 ? (currentShifts / employedDays) : 0;
+          score -= shiftRate * 300;
+
           if (w.type === 'permanent') score += 5;
+
+          // Penalize consecutive days (unless worker marked preferred)
+          if (workedAdjacentDay(w.id, date, allAssignments, prevAssignments)) {
+            if (avail !== 'preferred') score -= 30;
+          }
 
           return { worker: w, score };
         });
 
-        scoredWorkers.sort((a, b) => b.score - a.score || 0);
+        scoredWorkers.sort((a, b) => b.score - a.score || Math.random() - 0.5);
 
         const selected = scoredWorkers[0];
         if (selected && selected.score > -500) {
