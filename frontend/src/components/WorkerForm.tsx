@@ -29,7 +29,7 @@ export default function WorkerForm({ worker, onClose, onSave, clinicId }: Props)
 
     setSaving(true);
     try {
-      const data = {
+      const data: Record<string, unknown> = {
         name: name.trim(),
         role,
         type,
@@ -40,9 +40,9 @@ export default function WorkerForm({ worker, onClose, onSave, clinicId }: Props)
       };
 
       if (worker) {
-        await api.updateWorker(worker.id, data);
+        await api.updateWorker(worker.id, data as Partial<Worker>);
       } else {
-        await api.createWorker(clinicId, data);
+        await api.createWorker(clinicId, data as Partial<Worker>);
       }
       onSave();
     } catch (e) {
