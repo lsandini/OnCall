@@ -111,6 +111,7 @@ export function createSchedulesRouter(
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
     const prevSchedule = scheduleRepo.getByMonth(clinicId, prevYear, prevMonth);
+    const allSchedules = scheduleRepo.getAll(clinicId);
 
     const updated = fillScheduleGaps(
       year,
@@ -120,7 +121,8 @@ export function createSchedulesRouter(
       availability,
       configuration,
       holidays,
-      prevSchedule?.assignments
+      prevSchedule?.assignments,
+      allSchedules
     );
 
     scheduleRepo.save(clinicId, updated);
@@ -150,9 +152,32 @@ export function createSchedulesRouter(
     }
 
     // Verify the assignment belongs to this clinic's schedule
-    const assignmentBelongs = schedule.assignments.some(a => a.id === assignmentId);
-    if (!assignmentBelongs) {
+    const assignment = schedule.assignments.find(a => a.id === assignmentId);
+    if (!assignment) {
       return res.status(404).json({ error: 'Assignment not found in this schedule' });
+    }
+
+    // Validate role eligibility for the target position
+    const worker = workerRepo.getById(workerId);
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker not found' });
+    }
+    const eligibleRoles: Record<string, string[]> = {
+      supervisor: ['senior_specialist'],
+      first_line: ['senior_specialist', 'resident'],
+      second_line: ['senior_specialist', 'resident', 'student'],
+      third_line: ['senior_specialist', 'resident', 'student'],
+    };
+    if (!eligibleRoles[assignment.position]?.includes(worker.role)) {
+      return res.status(400).json({ error: `Role '${worker.role}' is not eligible for position '${assignment.position}'` });
+    }
+
+    // Check worker isn't already assigned to another position on the same day
+    const conflict = schedule.assignments.find(
+      a => a.id !== assignmentId && a.date === assignment.date && a.workerId === workerId
+    );
+    if (conflict) {
+      return res.status(400).json({ error: `Worker is already assigned as ${conflict.position} on ${assignment.date}` });
     }
 
     const updated = scheduleRepo.updateAssignment(assignmentId, workerId);

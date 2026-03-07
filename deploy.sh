@@ -1,5 +1,5 @@
 #!/bin/bash
 
 git add .
-git commit -m "permanent/temp/ext, availablility fixes"
+git commit -m "fixed attribution logic"
 git push -u origin main

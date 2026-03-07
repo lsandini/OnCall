@@ -72,6 +72,16 @@ function countEmployedDays(worker: Worker, dates: Date[]): number {
   return dates.filter(d => isWorkerEmployedOnDate(worker, d)).length;
 }
 
+// Count employed days from January through the given month (YTD)
+function countEmployedDaysYTD(worker: Worker, year: number, month: number): number {
+  let count = 0;
+  for (let m = 1; m <= month; m++) {
+    const dates = getDatesInMonth(year, m);
+    count += dates.filter(d => isWorkerEmployedOnDate(worker, d)).length;
+  }
+  return count;
+}
+
 // Check if worker can fill a position
 function canFillPosition(worker: Worker, position: LinePosition): boolean {
   switch (position) {
@@ -152,6 +162,39 @@ function workedAdjacentDay(
   );
 }
 
+// Calculate a proximity penalty based on how close recent shifts are.
+// Shifts within 1-6 days get a decaying penalty: adjacent days penalized most.
+// Also penalizes repeating the same day of the week to vary weekday assignments.
+function proximityPenalty(
+  workerId: string,
+  date: Date,
+  currentAssignments: ShiftAssignment[],
+  previousMonthAssignments: ShiftAssignment[]
+): number {
+  const allAssignments = [...currentAssignments, ...previousMonthAssignments];
+  const dateMs = date.getTime();
+  const dayOfWeek = date.getDay();
+  let penalty = 0;
+  let sameWeekdayCount = 0;
+  for (const a of allAssignments) {
+    if (a.workerId !== workerId) continue;
+    const [y, m, d] = a.date.split('-').map(Number);
+    const aDate = new Date(y, m - 1, d);
+    const daysDiff = Math.abs(dateMs - aDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysDiff >= 1 && daysDiff <= 6) {
+      // Decaying penalty: 60 for 1 day apart, 30 for 2, 20 for 3, etc.
+      penalty += 60 / daysDiff;
+    }
+    // Count same weekday assignments (current month only)
+    if (aDate.getDay() === dayOfWeek) {
+      sameWeekdayCount++;
+    }
+  }
+  // Escalating penalty for repeated same weekday: 20 for 2nd, 40 for 3rd, etc.
+  penalty += sameWeekdayCount * 20;
+  return penalty;
+}
+
 // Check if worker is assigned to a specific shift
 function isWorkerAssignedToShift(
   workerId: string,
@@ -183,14 +226,18 @@ export function generateMonthlySchedule(
   const prevSchedule = existingSchedules.find(s => s.year === prevYear && s.month === prevMonth);
   const previousMonthAssignments = prevSchedule?.assignments || [];
 
-  // Track shift counts for balancing — seed from previous month's burden
+  // Track shift counts for balancing — seed from all prior months in the year (YTD)
   const shiftCounts: Map<string, number> = new Map();
   activeWorkers.forEach(w => shiftCounts.set(w.id, 0));
-  previousMonthAssignments.forEach(a => {
-    if (shiftCounts.has(a.workerId)) {
-      shiftCounts.set(a.workerId, (shiftCounts.get(a.workerId) || 0) + 1);
+  for (const s of existingSchedules) {
+    if (s.year === year && s.month < month) {
+      for (const a of s.assignments) {
+        if (shiftCounts.has(a.workerId)) {
+          shiftCounts.set(a.workerId, (shiftCounts.get(a.workerId) || 0) + 1);
+        }
+      }
     }
-  });
+  }
 
   // Use configuration's daily requirements if provided
   const dailyRequirements = configuration?.dailyRequirements || [];
@@ -249,18 +296,16 @@ export function generateMonthlySchedule(
           else if (avail === 'available') score += 50;
           else if (avail === 'unavailable') score -= 1000; // Strong penalty
 
-          // Balance scoring — normalize by employed days so part-month workers get proportional load
-          const employedDays = countEmployedDays(w, dates);
-          const shiftRate = employedDays > 0 ? (currentShifts / employedDays) : 0;
+          // Balance scoring — normalize by YTD employed days so part-year workers get proportional load
+          const ytdEmployedDays = countEmployedDaysYTD(w, year, month);
+          const shiftRate = ytdEmployedDays > 0 ? (currentShifts / ytdEmployedDays) : 0;
           score -= shiftRate * 300;
 
           // Slight preference for permanent staff over external
           if (w.type !== 'external') score += 5;
 
-          // Penalize consecutive days (unless worker marked preferred)
-          if (workedAdjacentDay(w.id, date, assignments, previousMonthAssignments)) {
-            if (avail !== 'preferred') score -= 30;
-          }
+          // Penalize proximity to recent shifts — spreads shifts evenly
+          score -= proximityPenalty(w.id, date, assignments, previousMonthAssignments);
 
           return { worker: w, score };
         });
@@ -319,7 +364,8 @@ export function fillScheduleGaps(
   availability: WeeklyAvailability[],
   configuration?: ShiftConfiguration,
   holidays?: { date: string; name: string }[],
-  previousMonthAssignments?: ShiftAssignment[]
+  previousMonthAssignments?: ShiftAssignment[],
+  existingSchedules?: MonthlySchedule[]
 ): MonthlySchedule {
   const prevAssignments = previousMonthAssignments || [];
   const dates = getDatesInMonth(year, month);
@@ -336,14 +382,20 @@ export function fillScheduleGaps(
     return avail !== 'unavailable';
   });
 
-  // Step 2: Initialize shift counts from kept assignments + previous month's burden
+  // Step 2: Initialize shift counts from YTD schedules + kept assignments
   const shiftCounts: Map<string, number> = new Map();
   activeWorkers.forEach(w => shiftCounts.set(w.id, 0));
-  prevAssignments.forEach(a => {
-    if (shiftCounts.has(a.workerId)) {
-      shiftCounts.set(a.workerId, (shiftCounts.get(a.workerId) || 0) + 1);
+  if (existingSchedules) {
+    for (const s of existingSchedules) {
+      if (s.year === year && s.month < month) {
+        for (const a of s.assignments) {
+          if (shiftCounts.has(a.workerId)) {
+            shiftCounts.set(a.workerId, (shiftCounts.get(a.workerId) || 0) + 1);
+          }
+        }
+      }
     }
-  });
+  }
   keptAssignments.forEach(a => {
     shiftCounts.set(a.workerId, (shiftCounts.get(a.workerId) || 0) + 1);
   });
@@ -405,17 +457,15 @@ export function fillScheduleGaps(
           else if (avail === 'available') score += 50;
           else if (avail === 'unavailable') score -= 1000;
 
-          // Balance scoring — normalize by employed days
-          const employedDays = countEmployedDays(w, dates);
-          const shiftRate = employedDays > 0 ? (currentShifts / employedDays) : 0;
+          // Balance scoring — normalize by YTD employed days
+          const ytdEmployedDays = countEmployedDaysYTD(w, year, month);
+          const shiftRate = ytdEmployedDays > 0 ? (currentShifts / ytdEmployedDays) : 0;
           score -= shiftRate * 300;
 
           if (w.type !== 'external') score += 5;
 
-          // Penalize consecutive days (unless worker marked preferred)
-          if (workedAdjacentDay(w.id, date, allAssignments, prevAssignments)) {
-            if (avail !== 'preferred') score -= 30;
-          }
+          // Penalize proximity to recent shifts — spreads shifts evenly
+          score -= proximityPenalty(w.id, date, allAssignments, prevAssignments);
 
           return { worker: w, score };
         });

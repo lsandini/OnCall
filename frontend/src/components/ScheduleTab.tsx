@@ -6,6 +6,7 @@ import {
   getDayNamesFull,
   getDayNames,
   getPositionLabels,
+  getRoleLabels,
   getShiftName,
   getWeekNumber,
   SHIFT_COLORS,
@@ -56,6 +57,7 @@ export default function ScheduleTab({ workers, schedule, schedules, year, month,
   const dayNamesFull = getDayNamesFull(translations);
   const dayNamesShort = getDayNames(translations);
   const positionLabels = getPositionLabels(translations);
+  const roleLabels = getRoleLabels(translations);
 
 
   useEffect(() => {
@@ -282,13 +284,23 @@ export default function ScheduleTab({ workers, schedule, schedules, year, month,
   const gapCount = conflictedAssignmentIds.size;
 
   const EligibleWorkerSelector = ({ assignment }: { assignment: ShiftAssignment }) => {
+    // Workers already assigned to a different position on the same day
+    const dayAssignments = assignmentsByDate.get(assignment.date) || [];
+    const assignedWorkerIds = new Set(
+      dayAssignments
+        .filter(a => a.id !== assignment.id)
+        .map(a => a.workerId)
+    );
+
     const eligible = workers.filter(w => {
       if (!w.active) return false;
+      // Don't show workers already assigned to another position this day
+      if (assignedWorkerIds.has(w.id)) return false;
       switch (assignment.position) {
         case 'supervisor': return w.role === 'senior_specialist';
-        case 'first_line': return w.role === 'resident';
+        case 'first_line': return w.role === 'senior_specialist' || w.role === 'resident';
         case 'second_line':
-        case 'third_line': return w.role === 'resident' || w.role === 'student';
+        case 'third_line': return w.role === 'senior_specialist' || w.role === 'resident' || w.role === 'student';
         default: return false;
       }
     });
@@ -303,22 +315,34 @@ export default function ScheduleTab({ workers, schedule, schedules, year, month,
             </p>
           </div>
           <div className="flex-1 overflow-auto p-4">
-            {eligible.map(w => (
-              <button
-                key={w.id}
-                onClick={() => handleUpdateAssignment(assignment.id, w.id)}
-                className={`w-full text-left px-4 py-3 mb-2 border-2 transition-colors ${
-                  w.id === assignment.workerId
-                    ? 'border-clinic-500 bg-clinic-50'
-                    : 'border-steel-200 hover:bg-steel-50'
-                }`}
-              >
-                <div className="font-medium text-steel-900">{w.name}</div>
-                <div className="text-xs text-steel-500 font-mono">
-                  {((s) => s ? s.weekday + s.weekend : 0)(workerStats.get(w.id))} {t('schedule.shiftsThisMonth')}
-                </div>
-              </button>
-            ))}
+            {(['senior_specialist', 'resident', 'student'] as const)
+              .map(role => {
+                const roleWorkers = eligible.filter(w => w.role === role);
+                if (roleWorkers.length === 0) return null;
+                return (
+                  <div key={role} className="mb-4 last:mb-0">
+                    <div className="text-xs font-bold text-steel-500 uppercase tracking-wider mb-2">
+                      {roleLabels[role]}
+                    </div>
+                    {roleWorkers.map(w => (
+                      <button
+                        key={w.id}
+                        onClick={() => handleUpdateAssignment(assignment.id, w.id)}
+                        className={`w-full text-left px-4 py-3 mb-2 border-2 transition-colors ${
+                          w.id === assignment.workerId
+                            ? 'border-clinic-500 bg-clinic-50'
+                            : 'border-steel-200 hover:bg-steel-50'
+                        }`}
+                      >
+                        <div className="font-medium text-steel-900">{w.name}</div>
+                        <div className="text-xs text-steel-500 font-mono">
+                          {((s) => s ? s.weekday + s.weekend : 0)(workerStats.get(w.id))} {t('schedule.shiftsThisMonth')}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
           </div>
           <div className="px-6 py-4 border-t border-steel-200">
             <button
@@ -406,11 +430,11 @@ export default function ScheduleTab({ workers, schedule, schedules, year, month,
                         <button
                           key={a.id}
                           onClick={() => !isOverflow && setEditingAssignment(a)}
-                          className={`w-full text-left px-2 py-1 text-xs border ${isConflict ? 'border-clay-500 bg-clay-50' : POSITION_COLORS[a.position]} hover:opacity-80 transition-opacity`}
+                          className={`w-full text-left px-2 py-1 text-xs border ${isConflict ? 'border-red-500 bg-red-50 animate-pulse' : POSITION_COLORS[a.position]} hover:opacity-80 transition-opacity`}
                         >
                           <span className="font-semibold">{positionLabels[a.position]}:</span>{' '}
                           {isConflict ? (
-                            <span className="font-mono text-clay-500 italic">{t('schedule.vacant')}</span>
+                            <span className="font-bold text-red-600">{t('schedule.vacant')}</span>
                           ) : (
                             <span className="font-mono">
                               {worker?.name.split(' ').slice(-1)[0]}
@@ -550,7 +574,7 @@ export default function ScheduleTab({ workers, schedule, schedules, year, month,
     const renderCell = (assignment: ShiftAssignment | undefined) => {
       if (!assignment) return '-';
       if (conflictedAssignmentIds.has(assignment.id)) {
-        return <span className="text-clay-600 italic ring-1 ring-clay-400 px-1 rounded-sm">{t('schedule.vacant')}</span>;
+        return <span className="font-bold text-red-600 ring-1 ring-red-400 bg-red-50 px-1 rounded-sm">{t('schedule.vacant')}</span>;
       }
       return getWorkerName(assignment.workerId);
     };
