@@ -95,6 +95,7 @@ export const fi: Translations = {
     deactivateConfirm: 'Poista käytöstä',
     failedDelete: 'Henkilön poistaminen epäonnistui',
     permanent: 'Vakituinen',
+    temporary: 'Määräaikainen',
     external: 'Ulkoinen',
     name: 'Nimi',
     role: 'Rooli',
@@ -188,6 +189,7 @@ export const fi: Translations = {
     yearOption: 'vuosi',
     employmentType: 'Työsuhteen tyyppi',
     permanentStaff: 'Vakituinen henkilöstö',
+    temporaryStaff: 'Määräaikainen',
     externalOnDemand: 'Ulkoinen (Tarvittaessa)',
     canDoubleShift: 'Voi tehdä tuplavuoroja (ilta + yö)',
     startDate: 'Alkupäivä',
@@ -202,6 +204,7 @@ export const fi: Translations = {
     preferred: 'Toivottu',
     unavailable: 'Ei saatavilla',
     clickToCycle: 'Klikkaa vaihtaaksesi tilaa',
+    outsideEmployment: 'Työsuhteen ulkopuolella',
   },
   clinic: {
     selectClinic: 'Valitse klinikka',

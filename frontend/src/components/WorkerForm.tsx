@@ -35,8 +35,8 @@ export default function WorkerForm({ worker, onClose, onSave, clinicId }: Props)
         type,
         canDoubleShift: type === 'external' ? canDoubleShift : false,
         yearOfStudy: role === 'student' ? yearOfStudy : undefined,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined
+        startDate: startDate || null,
+        endDate: endDate || null
       };
 
       if (worker) {
@@ -120,10 +120,15 @@ export default function WorkerForm({ worker, onClose, onSave, clinicId }: Props)
             </label>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as WorkerType)}
+              onChange={(e) => {
+                const newType = e.target.value as WorkerType;
+                setType(newType);
+                if (newType === 'permanent') setEndDate('');
+              }}
               className="w-full border-2 border-steel-200 px-4 py-2.5 bg-white focus:outline-none focus:border-clinic-500"
             >
               <option value="permanent">{t('workerForm.permanentStaff')}</option>
+              <option value="temporary">{t('workerForm.temporaryStaff')}</option>
               <option value="external">{t('workerForm.externalOnDemand')}</option>
             </select>
           </div>
@@ -162,7 +167,11 @@ export default function WorkerForm({ worker, onClose, onSave, clinicId }: Props)
               <input
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  if (e.target.value && type === 'permanent') setType('temporary');
+                  if (!e.target.value && type === 'temporary') setType('permanent');
+                }}
                 className="w-full border-2 border-steel-200 px-3 py-2 focus:outline-none focus:border-clinic-500"
               />
             </div>

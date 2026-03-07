@@ -95,6 +95,7 @@ export interface Translations {
     deactivateConfirm: string;
     failedDelete: string;
     permanent: string;
+    temporary: string;
     external: string;
     name: string;
     role: string;
@@ -188,6 +189,7 @@ export interface Translations {
     yearOption: string;
     employmentType: string;
     permanentStaff: string;
+    temporaryStaff: string;
     externalOnDemand: string;
     canDoubleShift: string;
     startDate: string;
@@ -202,6 +204,7 @@ export interface Translations {
     preferred: string;
     unavailable: string;
     clickToCycle: string;
+    outsideEmployment: string;
   };
   clinic: {
     selectClinic: string;

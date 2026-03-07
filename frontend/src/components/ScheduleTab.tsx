@@ -499,7 +499,7 @@ export default function ScheduleTab({ workers, schedule, schedules, year, month,
                     <tr key={w.id} className="border-t border-steel-100 hover:bg-steel-50">
                       <td className="px-4 py-2.5 font-medium text-steel-900">{w.name}</td>
                       <td className="px-4 py-2.5 text-xs text-steel-500 font-mono uppercase">
-                        {w.type === 'external' ? t('workers.external') : t('workers.permanent')}
+                        {w.type === 'external' ? t('workers.external') : w.type === 'temporary' ? t('workers.temporary') : t('workers.permanent')}
                       </td>
                       <td className="px-4 py-2.5 text-left font-mono">
                         <span className="font-bold text-steel-800">{ms.weekday + ms.weekend}</span>

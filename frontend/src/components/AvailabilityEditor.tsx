@@ -7,6 +7,7 @@ import { useTranslation } from '../i18n';
 interface Props {
   worker: Worker;
   year: number;
+  month: number;
   onClose: () => void;
 }
 
@@ -25,8 +26,8 @@ function getRelevantShifts(role: string): ShiftType[] {
   return ['day', 'evening', 'night'];
 }
 
-export default function AvailabilityEditor({ worker, year, onClose }: Props) {
-  const [currentMonth, setCurrentMonth] = useState(1);
+export default function AvailabilityEditor({ worker, year, month, onClose }: Props) {
+  const [currentMonth, setCurrentMonth] = useState(month);
   const [availability, setAvailability] = useState<WeeklyAvailability[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -143,6 +144,14 @@ export default function AvailabilityEditor({ worker, year, onClose }: Props) {
     return day === 0 || day === 6;
   };
 
+  const isWithinEmployment = (date: Date) => {
+    const startDate = worker.startDate ? new Date(worker.startDate) : new Date(0);
+    const endDate = worker.endDate ? new Date(worker.endDate) : new Date(9999, 11, 31);
+    // Compare date-only (ignore time)
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    return d >= startDate && d <= endDate;
+  };
+
   return (
     <div className="fixed inset-0 bg-steel-900/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white border-2 border-steel-200 shadow-sharp-lg w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
@@ -215,15 +224,16 @@ export default function AvailabilityEditor({ worker, year, onClose }: Props) {
             {monthDates.map(date => {
               const status = getDateStatus(date);
               const weekend = isWeekend(date);
+              const employed = isWithinEmployment(date);
               return (
                 <button
                   key={date.toISOString()}
-                  onClick={() => cycleStatus(date)}
-                  disabled={saving}
-                  className={`h-9 w-full border rounded flex items-center justify-center transition-colors text-sm font-mono ${STATUS_COLORS[status]} ${weekend ? 'bg-opacity-50' : ''} disabled:opacity-50`}
-                  title={status !== 'default' ? status : ''}
+                  onClick={() => employed && cycleStatus(date)}
+                  disabled={saving || !employed}
+                  className={`h-9 w-full border rounded flex items-center justify-center transition-colors text-sm font-mono ${employed ? STATUS_COLORS[status] : 'bg-steel-100 border-steel-100 cursor-not-allowed'} ${weekend && employed ? 'bg-opacity-50' : ''} disabled:opacity-50`}
+                  title={!employed ? t('availability.outsideEmployment') : status !== 'default' ? status : ''}
                 >
-                  <span className={weekend ? 'text-clay-600' : 'text-steel-700'}>
+                  <span className={!employed ? 'text-steel-300' : weekend ? 'text-clay-600' : 'text-steel-700'}>
                     {date.getDate()}
                   </span>
                 </button>

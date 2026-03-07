@@ -96,6 +96,8 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
       <td className="py-3 px-4">
         {worker.type === 'external' ? (
           <span className="text-xs px-2 py-0.5 bg-clay-100 border border-clay-300 text-clay-700">{t('workers.ext')}</span>
+        ) : worker.type === 'temporary' ? (
+          <span className="text-xs px-2 py-0.5 bg-clinic-50 border border-clinic-300 text-clinic-700">{t('workers.temporary')}</span>
         ) : (
           <span className="text-xs text-steel-400">{t('workers.permanent')}</span>
         )}
@@ -194,6 +196,7 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
           >
             <option value="all">{t('workers.allTypes')}</option>
             <option value="permanent">{t('workers.permanent')}</option>
+            <option value="temporary">{t('workers.temporary')}</option>
             <option value="external">{t('workers.external')}</option>
           </select>
         </div>
@@ -254,6 +257,7 @@ export default function WorkersTab({ workers, onWorkersChange, selectedYear, sel
         <AvailabilityEditor
           worker={availabilityWorker}
           year={selectedYear}
+          month={selectedMonth}
           onClose={() => setAvailabilityWorker(null)}
         />
       )}

@@ -95,6 +95,7 @@ export const en: Translations = {
     deactivateConfirm: 'Deactivate',
     failedDelete: 'Failed to delete worker',
     permanent: 'Permanent',
+    temporary: 'Temporary',
     external: 'External',
     name: 'Name',
     role: 'Role',
@@ -188,6 +189,7 @@ export const en: Translations = {
     yearOption: 'Year',
     employmentType: 'Employment Type',
     permanentStaff: 'Permanent Staff',
+    temporaryStaff: 'Temporary',
     externalOnDemand: 'External (On Demand)',
     canDoubleShift: 'Can work double shifts (evening + night)',
     startDate: 'Start Date',
@@ -202,6 +204,7 @@ export const en: Translations = {
     preferred: 'Preferred',
     unavailable: 'Unavailable',
     clickToCycle: 'Click to cycle status',
+    outsideEmployment: 'Outside employment period',
   },
   clinic: {
     selectClinic: 'Select Clinic',

@@ -4,7 +4,7 @@ import { Worker, WorkerRole, WorkerType } from '../types/index.js';
 import { WorkerRepo } from '../repositories/workerRepo.js';
 
 const VALID_ROLES: WorkerRole[] = ['senior_specialist', 'resident', 'student'];
-const VALID_TYPES: WorkerType[] = ['permanent', 'external'];
+const VALID_TYPES: WorkerType[] = ['permanent', 'temporary', 'external'];
 
 export function createWorkersRouter(workerRepo: WorkerRepo) {
   const router = Router();

@@ -1,5 +1,5 @@
 #!/bin/bash
 
 git add .
-git commit -m "add alternative nginx configuration for docker locally"
+git commit -m "permanent/temp/ext, availablility fixes"
 git push -u origin main

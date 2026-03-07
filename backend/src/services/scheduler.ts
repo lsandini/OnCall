@@ -255,7 +255,7 @@ export function generateMonthlySchedule(
           score -= shiftRate * 300;
 
           // Slight preference for permanent staff over external
-          if (w.type === 'permanent') score += 5;
+          if (w.type !== 'external') score += 5;
 
           // Penalize consecutive days (unless worker marked preferred)
           if (workedAdjacentDay(w.id, date, assignments, previousMonthAssignments)) {
@@ -410,7 +410,7 @@ export function fillScheduleGaps(
           const shiftRate = employedDays > 0 ? (currentShifts / employedDays) : 0;
           score -= shiftRate * 300;
 
-          if (w.type === 'permanent') score += 5;
+          if (w.type !== 'external') score += 5;
 
           // Penalize consecutive days (unless worker marked preferred)
           if (workedAdjacentDay(w.id, date, allAssignments, prevAssignments)) {

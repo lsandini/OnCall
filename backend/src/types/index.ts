@@ -5,7 +5,7 @@ export interface Clinic {
 }
 
 export type WorkerRole = 'senior_specialist' | 'resident' | 'student';
-export type WorkerType = 'permanent' | 'external';
+export type WorkerType = 'permanent' | 'temporary' | 'external';
 export type ShiftType = 'day' | 'evening' | 'night';
 export type LinePosition = 'supervisor' | 'first_line' | 'second_line' | 'third_line';
 export type AvailabilityStatus = 'available' | 'preferred' | 'unavailable';
